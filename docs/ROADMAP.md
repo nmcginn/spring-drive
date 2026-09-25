@@ -12,9 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M0
-- Last session: none yet
-- Open PRs waiting on review: none
+- Current milestone: M1 (M0 is in review)
+- Last session: 2026-09-25, M0 scaffold
+- Open PRs waiting on review: #2 (M0 scaffold)
+- Next up: M1 needs M0 merged. With M0 in review and every later task depending on it, the next night either stacks M1 on the M0 branch (one deep) or addresses M0's review.
 
 ## Open questions for the maintainer
 
@@ -26,7 +27,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M0: Scaffold
 
-- [ ] **Scaffold the site, the checks, and the runtime.**
+- [x] **Scaffold the site, the checks, and the runtime.**
   *Needs:* nothing.
   - Vite + strict TypeScript, ESLint, Prettier
   - Vitest and Playwright wired into `npm test` and `npm run test:e2e`
@@ -145,6 +146,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M0: Scaffold** (2026-09-25). Vite 8 and strict TypeScript 6, ESLint 10 with typescript-eslint, Prettier, Vitest 5, and Playwright 1.63, all behind `npm run check`. `src/runtime` has the scheduler (one loop, global pause, offscreen pause through IntersectionObserver, reduced motion with a per-widget Play button, a clamped step, and a loop that idles when nothing ticks), the light and dark palette (inlined into `index.html` at build time, with every part colour at WCAG AA for text), a HiDPI canvas, and button helpers. A placeholder widget proves it all end to end, on a 380 px touch project and a desktop project. Lint and a DOM-free `tsconfig` enforce `src/sim`'s purity and the scheduler's monopoly on `requestAnimationFrame`, each proven by a fixture that must fail. Jost is bundled from `@fontsource/jost`, and an e2e guard fails any test that makes an off-origin request. CI's `scaffold` gate is gone. The index page has the article's section skeleton with PROSE stubs, and a footnote crediting Bartosz Ciechanowski's *Mechanical Watch* as the inspiration, at the maintainer's request. Decisions 12 to 18, and an amendment to 10.
 
 ## Ideas, not yet scheduled
 

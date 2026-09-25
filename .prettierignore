@@ -1,0 +1,13 @@
+# Generated or installed.
+dist/
+node_modules/
+test-results/
+playwright-report/
+tools/out/
+package-lock.json
+
+# Hand-written prose: the maintainer's article and the project's docs.
+# Prettier would reflow paragraphs and realign tables on every edit, which
+# turns a one-word change into a noisy diff. See decision 12.
+*.md
+index.html

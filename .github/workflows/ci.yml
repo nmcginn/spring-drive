@@ -14,31 +14,8 @@ permissions:
   contents: read
 
 jobs:
-  # Temporary: until M0 lands there is no package.json, and every job below
-  # would fail on `npm ci` rather than on anything real. Skipped is not failed,
-  # so master stays green in between. M0's acceptance criteria delete this job
-  # and the `needs`/`if` lines that point at it. See decision 10.
-  scaffold:
-    name: Scaffold present
-    runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.probe.outputs.ready }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - id: probe
-        run: |
-          if [ -f package.json ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::No package.json yet (M0 has not landed); skipping checks."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
   check:
     name: Typecheck, lint, format, unit tests, build
-    needs: scaffold
-    if: needs.scaffold.outputs.ready == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -84,8 +61,6 @@ jobs:
 
   e2e:
     name: Playwright smoke tests
-    needs: scaffold
-    if: needs.scaffold.outputs.ready == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -102,6 +77,7 @@ jobs:
       - name: Install Playwright's Chromium
         run: npx playwright install --with-deps chromium
 
+      # Builds first, then runs against `vite preview` of that build.
       - name: Smoke tests
         run: npm run test:e2e
 
