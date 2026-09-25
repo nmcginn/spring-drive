@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# A new push supersedes whatever was already running for the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Temporary: until M0 lands there is no package.json, and every job below
+  # would fail on `npm ci` rather than on anything real. Skipped is not failed,
+  # so master stays green in between. M0's acceptance criteria delete this job
+  # and the `needs`/`if` lines that point at it. See decision 10.
+  scaffold:
+    name: Scaffold present
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: probe
+        run: |
+          if [ -f package.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No package.json yet (M0 has not landed); skipping checks."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  check:
+    name: Typecheck, lint, format, unit tests, build
+    needs: scaffold
+    if: needs.scaffold.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci`, not `npm install`, so a PR that forgets to commit
+      # package-lock.json fails here rather than silently resolving different
+      # versions than the author had.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Unit and physics tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Reported, never gated: the number that matters is the per-frame budget
+      # in M9, but a bundle that doubles overnight is worth a reviewer's glance.
+      - name: Report bundle size
+        run: |
+          {
+            echo '### Bundle size'
+            echo
+            echo '| File | Bytes | Gzipped |'
+            echo '|---|---:|---:|'
+            find dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.woff2' \) | sort | while read -r f; do
+              echo "| \`${f#dist/}\` | $(wc -c < "$f") | $(gzip -9c "$f" | wc -c) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: Playwright smoke tests
+    needs: scaffold
+    if: needs.scaffold.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Only Chromium: the smoke tests prove mounting, interaction, and a clean
+      # console, which do not need three engines to be believed.
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke tests
+        run: npm run test:e2e
+
+      # The screenshots are how widget work gets reviewed without checking out
+      # the branch, so they are uploaded whether or not the tests passed.
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: test-results/screenshots/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

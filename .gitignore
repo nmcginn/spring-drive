@@ -1,0 +1,27 @@
+node_modules/
+
+# `npm run build`, and Vite's cache.
+/dist
+.vite/
+
+# `npm run sim` writes scenario CSVs here. They are reproducible from the
+# scenario name (decision 2), so they are never committed.
+/tools/out
+
+# Playwright's results, screenshots, and HTML report. CI uploads them as
+# artifacts instead.
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
+# Vitest coverage.
+/coverage
+
+# Cloudflare's local state, if wrangler is ever run here.
+.wrangler/
+
+*.log
+.DS_Store
+.env
+.env.*

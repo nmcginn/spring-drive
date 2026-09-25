@@ -4,15 +4,12 @@ A long-form, Ciechanowski-style article explaining how Seiko's Spring Drive work
 
 Stack: plain Vite + TypeScript (strict), hand-written `index.html`, Canvas 2D / SVG for widgets, Vitest for unit tests, Playwright for smoke tests, deployed to Cloudflare Pages.
 
----
+This file is the design: what is being built and why it looks the way it does. It changes when the maintainer changes the design, not as work progresses. Progress lives elsewhere:
 
-## Status
-
-Agents: update this section at the end of every session.
-
-- Current milestone: M0
-- Last session: —
-- Open questions for Nathan: —
+- `docs/ROADMAP.md` — the milestones, their acceptance criteria, the project status, and open questions for the maintainer. The nightly loop works from it.
+- `PHYSICS.md` — every physical parameter, with its derivation and its label.
+- `docs/DECISIONS.md` — choices that would otherwise get re-litigated.
+- `docs/ARCHITECTURE.md` — what has actually been built, against the target below.
 
 ---
 
@@ -20,10 +17,14 @@ Agents: update this section at the end of every session.
 
 ```
 /
-├── index.html              # The article. Prose is Nathan's; widgets mount into data-widget slots
+├── index.html              # The article. Prose is the maintainer's; widgets mount into data-widget slots
 ├── PLAN.md                 # This file
 ├── PHYSICS.md              # Parameter derivations and assumptions log
 ├── CLAUDE.md               # Agent working rules
+├── docs/
+│   ├── ROADMAP.md          # Milestones, acceptance criteria, status, open questions
+│   ├── DECISIONS.md        # Why things are the way they are
+│   └── ARCHITECTURE.md     # What has been built, against this plan
 ├── src/
 │   ├── main.ts             # Finds [data-widget] slots, mounts widgets lazily
 │   ├── sim/                # Pure TS physics. NO DOM, NO timers, NO globals
@@ -120,7 +121,7 @@ Seiko's actual control law is not public. Model it as a discrete controller that
 
 ## Article outline and widgets
 
-Each section gets prose (Nathan writes it) and one primary widget. Widget IDs are stable and used as `data-widget` values.
+Each section gets prose (the maintainer writes it) and one primary widget. Widget IDs are stable and used as `data-widget` values.
 
 | # | Section | Widget ID | What the reader does |
 |---|---|---|---|
@@ -144,46 +145,9 @@ Every widget must:
 
 ## Milestones
 
-One milestone per session. Each ends in a PR. Do not start the next milestone in the same session.
+M0 Scaffold, M1 Sim core and PHYSICS.md, M2 Averaged mode and CLI, M3 `runaway` and `hero-glide`, M4 `generator`, M5 `lenz-brake`, M6 `quartz`, M7 `loop`, M8 `tri-synchro`, M9 Polish, M10 (optional) `movement-3d`.
 
-### M0: Scaffold
-- [ ] Vite + strict TypeScript, ESLint, Prettier
-- [ ] Vitest and Playwright wired into `npm test` and `npm run test:e2e`
-- [ ] `scheduler.ts` with global pause, offscreen pausing, reduced motion
-- [ ] `palette.ts` with light and dark themes
-- [ ] Placeholder widget mounted in `index.html`
-- [ ] Cloudflare Pages build config (`npm run build`, output `dist`)
-- **Done when:** all checks pass, placeholder widget animates, pauses offscreen, and passes the smoke test.
-
-### M1: Sim core and PHYSICS.md
-- [ ] All `src/sim` modules for detailed mode
-- [ ] `params.ts` fully populated, every value traced to PHYSICS.md
-- [ ] Tests 1, 2, 5, 6, 8
-- **Done when:** tests pass and PHYSICS.md explains every derived number.
-
-### M2: Averaged mode and CLI
-- [ ] `averaged.ts`
-- [ ] `tools/sim-cli.ts` with scenarios: `full-wind-lock`, `runaway`, `rate-24h`, `rundown-72h`, `shock`
-- [ ] Tests 3, 4, 7
-- **Done when:** CLI writes CSVs for every scenario and all physics tests pass.
-
-### M3: `runaway` and `hero-glide` widgets
-### M4: `generator` widget
-### M5: `lenz-brake` widget
-### M6: `quartz` widget
-### M7: `loop` widget
-### M8: `tri-synchro` widget
-
-For M3 to M8:
-- **Done when:** widget meets every requirement in the widget list above, has a Playwright test that mounts it, interacts with its primary control, asserts no console errors, and attaches a screenshot at mobile and desktop widths.
-
-### M9: Polish
-- [ ] Consistent palette usage across prose and widgets
-- [ ] Performance budget: all visible widgets together stay under 4 ms of main-thread time per frame on a mid-range laptop
-- [ ] Keyboard access for all controls, ARIA labels on sliders
-- [ ] Open Graph image and meta tags
-
-### M10 (optional): `movement-3d`
+Their checklists and acceptance criteria live in `docs/ROADMAP.md`, one task per milestone, ticked as each one lands. One milestone per pull request.
 
 ---
 
