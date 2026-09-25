@@ -14,7 +14,7 @@ Update this at the end of every session.
 
 - Current milestone: M1 (M0 is in review)
 - Last session: 2026-09-25, M0 scaffold
-- Open PRs waiting on review: M0 scaffold
+- Open PRs waiting on review: #2 (M0 scaffold)
 - Next up: M1 needs M0 merged. With M0 in review and every later task depending on it, the next night either stacks M1 on the M0 branch (one deep) or addresses M0's review.
 
 ## Open questions for the maintainer
