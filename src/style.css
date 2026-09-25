@@ -1,0 +1,142 @@
+/* Jost is bundled from @fontsource/jost into the build output, so the page
+   makes no font request to another origin (decision 8). Latin subset only:
+   the article is in English, and a symbol outside it (τ, Ω) falls back to
+   the system sans in the stack below. */
+@import '@fontsource/jost/latin-400.css';
+@import '@fontsource/jost/latin-400-italic.css';
+@import '@fontsource/jost/latin-600.css';
+
+/* Colours come only from the palette's custom properties, which index.html
+   gets inlined at build time from src/runtime/palette.ts. */
+
+:root {
+  --font-body: 'Jost', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --measure: 40rem;
+  --gutter: 16px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ui-background);
+  color: var(--ui-text);
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.article {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 2rem var(--gutter) 6rem;
+}
+
+h1,
+h2 {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.part {
+  font-weight: 600;
+}
+
+.widget-slot {
+  margin: 2rem 0;
+  /* Reserve space before the widget mounts, so lazy mounting does not shift
+     the prose the reader is in the middle of. */
+  min-height: 160px;
+}
+
+.widget {
+  background: var(--ui-surface);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.readouts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.9375rem;
+}
+
+.readouts dt {
+  color: var(--ui-muted);
+}
+
+.readouts dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.control-button,
+.global-pause {
+  /* 44 px is the minimum comfortable touch target. */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.control-button:focus-visible,
+.global-pause:focus-visible {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
+}
+
+.control-button[hidden],
+.global-pause[hidden] {
+  display: none;
+}
+
+.global-pause {
+  position: fixed;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  box-shadow: 0 0 0 1px var(--ui-grid);
+}
+
+.article-footer {
+  margin-top: 4rem;
+  border-top: 1px solid var(--ui-grid);
+  padding-top: 1rem;
+  color: var(--ui-muted);
+  font-size: 0.875rem;
+}

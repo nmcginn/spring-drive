@@ -12,7 +12,7 @@ npm run dev      # http://localhost:5173
 npm run check    # everything CI runs
 ```
 
-`package.json` arrives with milestone M0, the scaffold, and `npm run sim -- <scenario>` with M2. See `CLAUDE.md` for the full command list.
+Node 22 (`.nvmrc`). `npm run sim -- <scenario>` arrives with M2. See `CLAUDE.md` for the full command list.
 
 | File | What it is |
 |---|---|
@@ -29,7 +29,18 @@ Most of the code is written by Claude, one milestone per night, as one pull requ
 
 ## Deployment
 
-The site is static and deploys to Cloudflare Pages from `master`: build command `npm run build`, output directory `dist`. M0 adds the details.
+The site is static and deploys to Cloudflare Pages from `master`. To connect the repository:
+
+1. In the Cloudflare dashboard, go to **Workers & Pages → Create → Pages → Connect to Git**, and pick this repository.
+2. Set the production branch to `master`.
+3. Build settings:
+   - Framework preset: **None** (it is plain Vite; a preset adds nothing)
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+   - Root directory: leave empty
+4. Node version: Cloudflare's build image reads `.nvmrc`, which pins Node 22. If a build ever picks up another version, set the environment variable `NODE_VERSION` to `22` for both Production and Preview.
+
+Every pull request then gets a preview deployment, which is the quickest way to try a widget on a real phone. The build needs no secrets and no environment variables, and the site makes no runtime network requests: fonts and scripts are all served from `dist`.
 
 ## License
 

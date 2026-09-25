@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spring Drive</title>
+    <!-- No favicon yet (M9 adds sharing metadata). An empty data: icon stops the browser requesting /favicon.ico and logging a 404. -->
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="How Seiko's Spring Drive keeps time, explained with interactive simulations."
+    />
+    <!-- The palette is inlined here at build time from src/runtime/palette.ts, so the prose is coloured before any script runs. -->
+    <style id="palette"></style>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <main class="article">
+      <header>
+        <h1>Spring Drive</h1>
+      </header>
+
+      <section id="intro" aria-labelledby="intro-title">
+        <h2 id="intro-title" class="visually-hidden">Introduction</h2>
+        <!-- PROSE: open on the gliding seconds hand, and the question of how a mechanical watch can move without ticking. -->
+        <!-- M3 replaces this placeholder with the hero-glide widget. It is here so M0 can prove mounting, the scheduler, and the palette. -->
+        <figure class="widget-slot" data-widget="placeholder"></figure>
+        <!-- PROSE: introduce the parts by name: the <span class="part" data-part="mainspring">mainspring</span>, the <span class="part" data-part="rotor">glide wheel</span>, the <span class="part" data-part="coil">coils</span>, the <span class="part" data-part="quartz">quartz crystal</span>, and the <span class="part" data-part="ic">IC</span>. -->
+      </section>
+
+      <section id="runaway" aria-labelledby="runaway-title">
+        <h2 id="runaway-title">The runaway</h2>
+        <!-- PROSE: a <span class="part" data-part="mainspring">mainspring</span> driving a free <span class="part" data-part="rotor">glide wheel</span> overspins and runs down fast. Widget slot (runaway) lands in M3. -->
+      </section>
+
+      <section id="generator" aria-labelledby="generator-title">
+        <h2 id="generator-title">Spinning makes electricity</h2>
+        <!-- PROSE: the spinning <span class="part" data-part="rotor">glide wheel</span> induces an EMF in the <span class="part" data-part="coil">coils</span>. Widget slot (generator) lands in M4. -->
+      </section>
+
+      <section id="lenz-brake" aria-labelledby="lenz-brake-title">
+        <h2 id="lenz-brake-title">Electricity pushes back</h2>
+        <!-- PROSE: drawing current from the <span class="part" data-part="coil">coils</span> brakes the <span class="part" data-part="rotor">glide wheel</span>. Widget slot (lenz-brake) lands in M5. -->
+      </section>
+
+      <section id="quartz" aria-labelledby="quartz-title">
+        <h2 id="quartz-title">A reference that doesn't drift</h2>
+        <!-- PROSE: the <span class="part" data-part="quartz">quartz crystal</span> at 32,768 Hz, divided down to the 8 Hz reference. Widget slot (quartz) lands in M6. -->
+      </section>
+
+      <section id="loop" aria-labelledby="loop-title">
+        <h2 id="loop-title">Closing the loop</h2>
+        <!-- PROSE: the <span class="part" data-part="ic">IC</span> compares the <span class="part" data-part="rotor">glide wheel</span> against the reference and sets the brake. Widget slot (loop) lands in M7. -->
+      </section>
+
+      <section id="tri-synchro" aria-labelledby="tri-synchro-title">
+        <h2 id="tri-synchro-title">Tri-synchro, all together</h2>
+        <!-- PROSE: the whole system, from full wind to rundown, powered by the <span class="part" data-part="capacitor">capacitor</span> it charges. Widget slot (tri-synchro) lands in M8. -->
+      </section>
+
+      <footer class="article-footer">
+        <p class="footnote">
+          Thanks to Bartosz Ciechanowski, whose
+          <a href="https://ciechanow.ski/mechanical-watch/">Mechanical Watch</a>
+          inspired this project.
+        </p>
+      </footer>
+    </main>
+
+    <button type="button" class="global-pause" data-global-pause hidden>
+      Pause animations
+    </button>
+  </body>
+</html>

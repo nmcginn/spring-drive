@@ -1,0 +1,13 @@
+{
+  // The simulation has to run unchanged under Node and in the browser, so it
+  // is typechecked with neither the DOM lib nor Node's types. Any use of
+  // `document`, `window`, `setTimeout`, or `process` here is a type error.
+  // See decision 2 and the M0 task in docs/ROADMAP.md.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["."],
+  "exclude": []
+}
