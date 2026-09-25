@@ -4,9 +4,9 @@ A long-form, Ciechanowski-style article explaining how Seiko's Spring Drive work
 
 Stack: plain Vite + TypeScript (strict), hand-written `index.html`, Canvas 2D / SVG for widgets, Vitest for unit tests, Playwright for smoke tests, deployed to Cloudflare Pages.
 
-This file is the design: what is being built and why it looks the way it does. It changes when Nathan changes the design, not as work progresses. Progress lives elsewhere:
+This file is the design: what is being built and why it looks the way it does. It changes when the maintainer changes the design, not as work progresses. Progress lives elsewhere:
 
-- `docs/ROADMAP.md` — the milestones, their acceptance criteria, the project status, and open questions for Nathan. The nightly loop works from it.
+- `docs/ROADMAP.md` — the milestones, their acceptance criteria, the project status, and open questions for the maintainer. The nightly loop works from it.
 - `PHYSICS.md` — every physical parameter, with its derivation and its label.
 - `docs/DECISIONS.md` — choices that would otherwise get re-litigated.
 - `docs/ARCHITECTURE.md` — what has actually been built, against the target below.
@@ -17,7 +17,7 @@ This file is the design: what is being built and why it looks the way it does. I
 
 ```
 /
-├── index.html              # The article. Prose is Nathan's; widgets mount into data-widget slots
+├── index.html              # The article. Prose is the maintainer's; widgets mount into data-widget slots
 ├── PLAN.md                 # This file
 ├── PHYSICS.md              # Parameter derivations and assumptions log
 ├── CLAUDE.md               # Agent working rules
@@ -121,7 +121,7 @@ Seiko's actual control law is not public. Model it as a discrete controller that
 
 ## Article outline and widgets
 
-Each section gets prose (Nathan writes it) and one primary widget. Widget IDs are stable and used as `data-widget` values.
+Each section gets prose (the maintainer writes it) and one primary widget. Widget IDs are stable and used as `data-widget` values.
 
 | # | Section | Widget ID | What the reader does |
 |---|---|---|---|

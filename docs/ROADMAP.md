@@ -4,7 +4,7 @@ The backlog for the nightly loop. Each task is a milestone from `PLAN.md` and is
 
 Each task lists its checklist and acceptance criteria. A task is done when those hold, tests cover them, and `npm run check` passes. Tick the box in the same PR that implements it, and move a one-paragraph summary to **Done**.
 
-If a task turns out to be larger than one PR, land the smallest **complete** slice (one a reader or Nathan meets as a finished change), tick nothing, and split the rest into new tasks here. Split at a seam: a surface this PR does not touch, such as another widget or a sim module nothing uses yet, or a decision Nathan should make first. An entry that exists only because the last change stopped short of the bar in `CLAUDE.md` is not a follow-up. It is unfinished work, and it belongs in the PR that raised it.
+If a task turns out to be larger than one PR, land the smallest **complete** slice (one a reader or the reviewer meets as a finished change), tick nothing, and split the rest into new tasks here. Split at a seam: a surface this PR does not touch, such as another widget or a sim module nothing uses yet, or a decision the maintainer should make first. An entry that exists only because the last change stopped short of the bar in `CLAUDE.md` is not a follow-up. It is unfinished work, and it belongs in the PR that raised it.
 
 ---
 
@@ -16,9 +16,9 @@ Update this at the end of every session.
 - Last session: none yet
 - Open PRs waiting on review: none
 
-## Open questions for Nathan
+## Open questions for the maintainer
 
-Questions the nightly loop could not answer without guessing at physics, architecture, or the article's structure. Each one names the task it blocks. When Nathan answers, record the answer in `docs/DECISIONS.md`, add a *Decided* note to the task pointing at it, and delete the question here.
+Questions the nightly loop could not answer without guessing at physics, architecture, or the article's structure. Each one names the task it blocks. When the maintainer answers, record the answer in `docs/DECISIONS.md`, add a *Decided* note to the task pointing at it, and delete the question here.
 
 - **How should widget screenshots reach a pull request?** (First needed by M3.) CLAUDE.md requires screenshots for widget work. By default, CI's `e2e` job uploads them as a `screenshots` artifact on the run, and the PR description says which files to look at. That means downloading a zip to review. The alternative is committing them under `docs/screenshots/<milestone>/`, so they render inline in the PR's diff, at the cost of binary churn in the history. Until this is answered, the nightly loop uses the CI artifact.
 
@@ -137,7 +137,7 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## M10 (optional): `movement-3d`
 
 - [ ] **Draggable 3D view of the movement.**
-  *Needs:* M9, and Nathan saying it is wanted. Do not start this on the loop's own initiative.
+  *Needs:* M9, and the maintainer saying it is wanted. Do not start this on the loop's own initiative.
   *Acceptance:* the widget done-when above. three.js is the one runtime dependency this widget is allowed, and it loads only when the widget's slot comes near the viewport.
 
 ---
@@ -148,6 +148,6 @@ Newest first. One paragraph per task: what landed, the date, and the decisions i
 
 ## Ideas, not yet scheduled
 
-Pull these up into a milestone when Nathan decides they are the most valuable next thing.
+Pull these up into a milestone when the maintainer decides they are the most valuable next thing.
 
 - (none yet)

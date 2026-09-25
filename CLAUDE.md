@@ -2,7 +2,7 @@
 
 You are building an interactive explainer for Seiko's Spring Drive: a long-form article with small widgets embedded in hand-written prose, each driven by a physics simulation in real SI units. A reader should come away understanding the mechanism, and every number on screen should survive a watchmaker reading over their shoulder.
 
-Most work here is done by Claude, one pull request per night, reviewed by Nathan in the morning. That cadence shapes everything below: each change must stand on its own and be verifiable from the PR (its tests, its CI run, its screenshots) without the reviewer checking out the branch.
+Most work here is done by Claude, one pull request per night, reviewed by the maintainer in the morning. That cadence shapes everything below: each change must stand on its own and be verifiable from the PR (its tests, its CI run, its screenshots) without the reviewer checking out the branch.
 
 Read `PLAN.md` at the start of every session. It is the source of truth for architecture, physics, the article outline, and widget requirements. `PHYSICS.md` is the source of truth for every physical parameter. `docs/ROADMAP.md` is the backlog, the project status, and the open questions. `docs/DECISIONS.md` says why things are the way they are, and `docs/ARCHITECTURE.md` says what has actually been built.
 
@@ -26,7 +26,7 @@ Each night a fresh session picks up the next task. The procedure is in `.claude/
 5. Open a PR against `master` using `.github/pull_request_template.md`. The description must include: what was done, how each acceptance criterion was verified, screenshots for any widget work, any new assumptions added to `PHYSICS.md`, and anything left unfinished.
 6. Never push to `master`. Never merge your own PR.
 
-If you are blocked or a requirement is ambiguous, do not guess on anything that changes physics, architecture, or the article structure. Stop, and write the question under "Open questions for Nathan" in `docs/ROADMAP.md`, naming the task it blocks. Then open the PR with what you have, with `[BLOCKED]` in the title. When Nathan answers, the answer becomes a decision in `docs/DECISIONS.md` and a *Decided* note on the task.
+If you are blocked or a requirement is ambiguous, do not guess on anything that changes physics, architecture, or the article structure. Stop, and write the question under "Open questions for the maintainer" in `docs/ROADMAP.md`, naming the task it blocks. Then open the PR with what you have, with `[BLOCKED]` in the title. When the maintainer answers, the answer becomes a decision in `docs/DECISIONS.md` and a *Decided* note on the task.
 
 ### What "one pull request" means
 
@@ -37,7 +37,7 @@ A PR carries whatever it takes to be complete: the change, its tests, its PHYSIC
 Splitting is a claim, and a follow-up has to earn it. One of these must be true:
 
 - it lands on a surface this PR does not touch, such as another widget, another article section, or a sim module nothing uses yet;
-- it turns on a decision that is Nathan's to make, so building it now would be guessing at the answer;
+- it turns on a decision that is the maintainer's to make, so building it now would be guessing at the answer;
 - it is a night's work on its own.
 
 Finishing what you just built is none of those. Some follow-ups exist only because the change stops short of the priorities above: a readout without units, a widget that pauses offscreen but ignores reduced motion, a parameter in `params.ts` with no row in `PHYSICS.md`, a test tolerance nobody justified. Those are not follow-ups. They are the rest of the task, and they ship now, however large that makes the diff. Two thirds of a change tonight and the last third tomorrow costs the reviewer two readings of the same paragraph.

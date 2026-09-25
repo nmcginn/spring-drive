@@ -25,7 +25,7 @@ npm run check    # everything CI runs
 
 ## How the work happens
 
-Most of the code is written by Claude, one milestone per night, as one pull request that Nathan reviews in the morning. The procedure is `.claude/commands/nightly.md`, run as `/nightly`. Nathan writes the prose. Agents leave `<!-- PROSE: ... -->` stubs where it belongs.
+Most of the code is written by Claude, one milestone per night, as one pull request that the maintainer reviews in the morning. The procedure is `.claude/commands/nightly.md`, run as `/nightly`. The maintainer writes the prose. Agents leave `<!-- PROSE: ... -->` stubs where it belongs.
 
 ## Deployment
 

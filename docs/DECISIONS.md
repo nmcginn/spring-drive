@@ -42,7 +42,7 @@ The widgets are diagrams and plots, and 2D is enough for them. three.js is a lar
 
 ### 9. One milestone-sized pull request per night
 
-Work lands as one PR a night, reviewed by Nathan in the morning. The constraint is the point: it keeps `master` deployable and keeps a human on every change.
+Work lands as one PR a night, reviewed by the maintainer in the morning. The constraint is the point: it keeps `master` deployable and keeps a human on every change.
 
 The same loop on another project (`eks-wrangler`) learned two lessons, and this setup adopts both from the start. First, a line-count target measures the wrong thing. Tests run several times the length of the code they cover, so a cap on the total diff made the loop split work on the count rather than at a seam. It shipped half a thought one night and the other half the next. There is no line target here. Second, the failure mode is taking too little, not too much. A "follow-up" that only finishes what tonight's PR started is not a follow-up. See `CLAUDE.md`, "What one pull request means".
 
