@@ -54,6 +54,8 @@ export const FRICTION_STRIBECK_RAD_S = 1;
 
 export const GENERATOR_EMF_AT_TARGET_V = 1;
 export const GENERATOR_KE_V_S_RAD = GENERATOR_EMF_AT_TARGET_V / ROTOR_TARGET_OMEGA_RAD_S;
+/** One north and one south pole: one cycle of EMF per turn. Only the waveform depends on it. */
+export const GENERATOR_POLE_PAIRS = 1;
 export const COIL_RESISTANCE_OHM = 100_000;
 export const RECTIFIER_DROP_V = 0.2;
 
@@ -109,6 +111,7 @@ export const DEFAULT_PARAMS: SimParams = Object.freeze({
   frictionStaticNm: FRICTION_STATIC_NM,
   frictionStribeckRadS: FRICTION_STRIBECK_RAD_S,
   generatorKeVSRad: GENERATOR_KE_V_S_RAD,
+  generatorPolePairs: GENERATOR_POLE_PAIRS,
   coilResistanceOhm: COIL_RESISTANCE_OHM,
   rectifierDropV: RECTIFIER_DROP_V,
   capacitanceF: CAPACITANCE_F,

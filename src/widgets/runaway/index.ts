@@ -8,12 +8,12 @@ import { TAU, radSToRevS, wrapAngleRad } from '../../sim/units.ts';
 import { handAngles, polar } from '../shared/dial.ts';
 import { drawArbor, drawDialFace, drawHand, labelFont } from '../shared/draw.ts';
 import { withUnit } from '../shared/format.ts';
+import { blur } from '../shared/motion.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   SPOKE_COUNT,
   advanceRunaway,
   barFraction,
-  blur,
   heightForWidth,
   initialRunawayState,
   isFastForward,
@@ -117,7 +117,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.fill();
     ctx.stroke();
 
-    const b = blur(state.sweepRad);
+    const b = blur(state.sweepRad, TAU / SPOKE_COUNT);
     const angle = wrapAngleRad(rotorAngleRad(state));
     ctx.strokeStyle = t.parts.rotor;
     ctx.lineWidth = 4;

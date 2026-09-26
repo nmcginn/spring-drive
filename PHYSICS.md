@@ -64,6 +64,7 @@ Each row says why this value, not just what it is. The article presents every on
 | Breakaway friction at the glide wheel | `FRICTION_STATIC_NM` | 3.0 × 10⁻⁹ | N·m | Assumption | Twice the Coulomb friction: lubricated pivots take more torque to start than to keep turning. Makes a dying spring stall the wheel outright instead of letting it crawl to a halt over hours. See D3. |
 | Stribeck speed | `FRICTION_STRIBECK_RAD_S` | 1.0 | rad/s | Assumption | The speed over which the breakaway excess fades (1/e), about a sixth of a turn a second, far below 8 rev/s, so it only matters as the wheel stops. See D3. |
 | EMF at target speed | `GENERATOR_EMF_AT_TARGET_V` | 1.0 | V | Assumption | Enough to charge the capacitor to about 0.8 V through the rectifier, which is 0.2 V above the IC's brownout. See D4. |
+| Magnet pole pairs | `GENERATOR_POLE_PAIRS` | 1 | pairs | Assumption | One north and one south pole, the simplest magnet that works, as in a quartz watch's stepping motor. The 9R's magnet layout is not published, and none of this project's sources give it. Only the generator widget's waveform depends on it: one EMF cycle per turn, so 8 Hz at 8 rev/s. The dynamics use the rectified mean k_e·ω, which does not depend on it. See D9. |
 | Coil resistance | `COIL_RESISTANCE_OHM` | 100,000 | Ω | Assumption | Sized so the fully shorted coil can brake about 9× the largest excess torque, which is headroom for shocks. A winding of this resistance is the right order for the coils reported in Seiko Epson's patents. See D4. |
 | Rectifier drop | `RECTIFIER_DROP_V` | 0.2 | V | Assumption | A low-drop rectifier, as a Schottky diode or an on-chip synchronous rectifier would give. See D4. |
 | IC and oscillator power | `IC_POWER_W` | 25 × 10⁻⁹ | W | Assumption | 25 nW is the figure widely reported for the Spring Drive IC, for example by [aBlogtoWatch](https://www.ablogtowatch.com/history-seiko-spring-drive-movement/2/) and [The 1916 Company](https://www.the1916company.com/blog/some-quality-time-with-the-grand-seiko-spring-drive-ufa.html). Neither page could be opened from the build container to confirm the figure or trace it to Seiko, so this stays an assumption until a primary source is checked. See D5. |
@@ -245,6 +246,17 @@ The runaway widget (M3) fast-forwards the glide wheel with the brake disabled, f
 - **Brownout and stall.** From there it follows D7's run-down: the IC browns out at 6.433 rev/s, at **93,831 s (26.06 h)**, and the wheel stalls at fraction 0.00374 (D5), at **104,186 s (28.94 h)**. That is **40%** of the published 72 h.
 - **What the hands show.** The hands are geared to the wheel, and the wheel's turns are fixed by the barrel turns spent: G × 7 turns × (1 − 0.00374) = 2,065,845 turns, whatever the speed. Read at 8 rev/s that is (1 − 0.00374) × 72 h = **71.73 h**. The unregulated watch shows nearly the full reserve's worth of time, crammed into 29 hours of real time.
 
+### D9. The EMF waveform
+
+The dynamics use only the EMF's rectified mean, e = k_e·ω (D4, decision 20). The generator widget (M4) draws the waveform itself, and that needs two things the mean does not: its shape, and how many cycles it makes per turn. Neither is published for the 9R, so both are assumptions, and neither changes any number above this section.
+
+- **Shape: a sine.** The coil's flux linkage is taken as sinusoidal in the magnet's angle, λ = Λ·cos(p·θ), with θ = 0 where a north pole faces the coil. Then e = −dλ/dt = Λ·p·ω·sin(p·θ): zero as a pole passes the coil, and largest a quarter of a pole pitch later, where the flux changes fastest. A real magnet and coil give a waveform flattened or peaked somewhat away from a sine; the sine is the textbook first approximation, and the article presents it as modelled.
+- **Cycles per turn: one.** `GENERATOR_POLE_PAIRS` = 1, so the EMF's frequency is p × ω ÷ 2π = the wheel's speed in rev/s: **8 Hz** at 8 rev/s.
+- **Peak.** A sine's rectified mean is 2/π of its peak, so matching the mean to k_e·ω fixes the peak at (π/2) × k_e × ω. At 8 rev/s: (π/2) × 1.0 V = **1.5708 V**. At the widget's top speed, 16 rev/s, it is 3.1416 V, which the scope's ±3.5 V scale holds.
+- **Check.** Averaged over a turn, |e| = (π/2) × k_e × ω × (2/π) = k_e × ω, the same 1.0 V at 8 rev/s that D4 and D5 are built on. `tests/sim/generator.test.ts` integrates the waveform numerically and confirms it at several speeds and pole counts.
+
+What the widget shows is the open-circuit EMF, the voltage the moving magnet induces whether or not current flows. In the watch, the coil's terminal voltage differs from it by the current through the coil's 100 kΩ, and the capacitor only charges while the EMF exceeds its voltage plus the rectifier drop (D5). The widget draws no current, so neither applies.
+
 ## Model predictions
 
 What the parameters above imply, as asserted by the physics tests. When a parameter changes, these change, and the tests say so.
@@ -272,6 +284,8 @@ What the parameters above imply, as asserted by the physics tests. When a parame
 | Detailed mode carried on from a settled averaged state | locked from the first reference tick, at any wind | `tests/sim/handover.test.ts` |
 | Speed held back by the full brake at full wind | 1.194 rev/s | `tests/sim/averaged.test.ts` |
 | Glide wheel stalls, at the end of a run-down | at fraction 0.00374, from about 0.36 rev/s | Test 5 (the run-down case), test 4 |
+| EMF at 8 rev/s: peak and frequency | 1.5708 V, 8 Hz | `tests/sim/generator.test.ts` (D9) |
+| EMF waveform's rectified mean, any speed | k_e·ω, within 10⁻⁶ | `tests/sim/generator.test.ts` (D9) |
 | Energy balance, detailed mode | within 1 part in 10⁵ | Test 5, `tests/sim/energy.test.ts` |
 
 Lock times are multiples of 0.125 s because lock is judged once per reference period.
@@ -296,4 +310,4 @@ The budget closes by construction here. Averaged mode's ledger over a full run-d
 
 When a value changes after it first lands, note it here: date, PR, old and new value, and why. Amend rows in place, and keep the history here.
 
-- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, and changed no existing value.)
+- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, and M4 added `GENERATOR_POLE_PAIRS` and derivation D9; neither changed an existing value.)

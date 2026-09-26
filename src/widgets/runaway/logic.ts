@@ -26,7 +26,7 @@ import {
 import { advanceDetailed, createState, windDetailed } from '../../sim/detailed.ts';
 import { fullWindAngleRad, windFraction } from '../../sim/mainspring.ts';
 import type { AveragedState, SimParams, SimState } from '../../sim/types.ts';
-import { TAU, radSToRevS } from '../../sim/units.ts';
+import { radSToRevS } from '../../sim/units.ts';
 import { formatDuration, formatPercent, formatRatio, withUnit } from '../shared/format.ts';
 
 const UNBRAKED = { brakeEnabled: false } as const;
@@ -163,36 +163,6 @@ export function readouts(state: RunawayState, params: SimParams) {
 
 /** The glide wheel is drawn with this many spokes, so its turning is visible. */
 export const SPOKE_COUNT = 4;
-
-/** Below this sweep a frame is drawn sharp. About 3°, a pixel at the rim of a 20 px wheel. */
-const SHARP_SWEEP_RAD = 0.05;
-const MAX_BLUR_COPIES = 12;
-
-export interface Blur {
-  /** How many copies of the spokes to draw, trailing back from the current angle. */
-  copies: number;
-  /** Angle between copies, rad. */
-  stepRad: number;
-  /** Opacity of each copy. */
-  alpha: number;
-}
-
-/**
- * Motion blur for a wheel that turned `sweepRad` in a frame. The spokes are
- * drawn at several angles across the sweep, each faint, as a camera's
- * exposure would record them. Past one spoke spacing the pattern repeats, so
- * the smear never needs to span more than that: a wheel at 30 rev/s is a
- * uniform blur, which is what it looks like, rather than the backwards-turning
- * wagon wheel that a sharp drawing at 60 frames a second would show.
- */
-export function blur(sweepRad: number, spokeCount: number = SPOKE_COUNT): Blur {
-  const spanRad = Math.min(Math.abs(sweepRad), TAU / spokeCount);
-  if (!(spanRad >= SHARP_SWEEP_RAD)) return { copies: 1, stepRad: 0, alpha: 1 };
-  const copies = Math.min(MAX_BLUR_COPIES, Math.ceil(spanRad / SHARP_SWEEP_RAD) + 1);
-  // Overlapping copies add up, so each is fainter the more there are, but
-  // never so faint that the smear disappears against the surface.
-  return { copies, stepRad: spanRad / (copies - 1), alpha: Math.max(0.2, 1.5 / copies) };
-}
 
 export interface Bar {
   x: number;

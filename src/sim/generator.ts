@@ -19,6 +19,34 @@ export function emfV(omegaRadS: number, params: SimParams): number {
   return params.generatorKeVSRad * Math.abs(omegaRadS);
 }
 
+// The waveform itself (PHYSICS.md, D9). Only the generator widget draws it;
+// the dynamics above use its rectified mean, and nothing here changes them.
+//
+// The coil's flux linkage is taken as sinusoidal in the magnet's angle,
+// λ = Λ·cos(p·θ), with θ = 0 where a north pole faces the coil. Its EMF is
+// e = −dλ/dt = Λ·p·ω·sin(p·θ): zero as a pole passes the coil, largest a
+// quarter of a pole pitch later, where the flux is changing fastest. A sine's
+// rectified mean is 2/π of its peak, so matching the mean to k_e·ω fixes the
+// peak at (π/2)·k_e·ω.
+
+/** Ratio of a sine's peak to its rectified mean, π/2. A property of the sine, not a parameter. */
+export const SINE_PEAK_TO_MEAN = Math.PI / 2;
+
+/** Instantaneous EMF across the coil, V, with the magnet at `rotorAngleRad` turning at `omegaRadS`. */
+export function instantaneousEmfV(rotorAngleRad: number, omegaRadS: number, params: SimParams): number {
+  return SINE_PEAK_TO_MEAN * params.generatorKeVSRad * omegaRadS * Math.sin(params.generatorPolePairs * rotorAngleRad);
+}
+
+/** Peak of the EMF over a cycle, V. */
+export function peakEmfV(omegaRadS: number, params: SimParams): number {
+  return SINE_PEAK_TO_MEAN * emfV(omegaRadS, params);
+}
+
+/** Frequency of the EMF, Hz: one cycle per pole pair per turn. */
+export function emfFrequencyHz(omegaRadS: number, params: SimParams): number {
+  return (params.generatorPolePairs * Math.abs(omegaRadS)) / (2 * Math.PI);
+}
+
 export interface CoilCurrents {
   /** Time-averaged current into the capacitor through the rectifier, A. */
   chargeA: number;

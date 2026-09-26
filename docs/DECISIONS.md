@@ -4,7 +4,7 @@ Short records of choices that would otherwise get re-litigated. Add them as they
 
 A physical parameter is not a decision. It goes in `PHYSICS.md`. A decision belongs here when it is about how the model or the site is built: an integrator, a control law's update rate, a dependency, a test strategy.
 
-Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2. Decisions 25 and 26 answered the maintainer's open questions after M2. Decisions 27 to 30 came with M3.
+Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2. Decisions 25 and 26 answered the maintainer's open questions after M2. Decisions 27 to 30 came with M3. Decisions 31 and 32 came with M4.
 
 ---
 
@@ -176,3 +176,19 @@ A 0.75° step is under a pixel at the tip of a phone-sized dial's seconds hand, 
 ### 30. Winding is booked in the energy ledger as work from outside
 
 Both widgets wind the spring, and the ledger's promise (decision 22) is that every flow is booked from its own formula. `windDetailed` and `windAveraged` book the work of winding as a new ledger term, `windJ`, and count it against `springJ`, since the spring took energy in rather than released it. The balance becomes springJ + windJ + shockJ = losses + the change in kinetic and capacitor energy, and test 5's formula adds `windJ` (zero in every existing test). The first version booked only the negative `springJ`, and a test that wound mid-run caught the balance failing by the energy wound in. That is what this term fixes.
+
+### 31. The generator widget turns the wheel by hand, and draws the waveform `generator.ts` gives
+
+The section's point is that EMF grows with speed, so the reader sets the speed directly, with a slider from rest to 16 rev/s, and the glide wheel turns at exactly that speed, as if cranked. Nothing brakes it, because no current flows: the brake is the next section's, and a wheel that slowed down under the reader's hand would answer a question the prose has not asked yet. So the widget runs neither detailed nor averaged mode. Its state is the speed history over the scope's half-second window, as segments of constant speed, and the wheel's angle is that speed integrated. The EMF at every sample comes from `instantaneousEmfV` in `src/sim/generator.ts`, the pure function decision 20 said M4 would add. It is a sine whose rectified mean is exactly the k_e·ω the dynamics use (PHYSICS.md, D9), so the waveform on screen and the numbers in every other widget agree.
+
+- **A change of speed is instant, and the scope shows it.** Each slider movement starts a new segment, so the trace before and after the change scrolls across the scope together. Several movements within one frame replace each other, and segments older than the window are dropped, so the history never outgrows the scope.
+- **A still frame redraws the whole window.** Under reduced motion, global pause, or offscreen, sim time does not move, so a change made "now" would never be seen. The widget therefore rewrites the window as if the wheel had always turned at the new speed, with the magnet where it is. It knows which case applies from the scheduler's `ticking` status.
+- **Scales are fixed.** The scope's ±3.5 V is the peak at 16 rev/s rounded up, and its window is half a second of sim time, so a trace growing taller and more tightly packed is the speed, not a rescaled axis.
+- **Slow motion at an eighth**, as in the intro, so the magnet's poles can be matched to the trace by eye. The N and S letters show whenever the magnet turns under 14° a frame, which is every slow-motion speed and no real-time one.
+- **Shared pieces moved.** Motion blur (`blur`) moved from the runaway widget to `widgets/shared/motion.ts`, and takes the angle over which the drawn pattern repeats: a spoke spacing for the runaway, a pole pair for the magnet. `formatPlayback` moved to `widgets/shared/format.ts`. Neither changed behaviour.
+
+### 32. Sliders are native range inputs, and every control on the page has its own accessible name
+
+`createSlider` in `runtime/controls.ts` is an `<input type="range">` inside its visible `<label>`. A native input drags by touch, steps with the arrow keys, and is announced as a slider without extra code. `aria-valuetext` adds the unit to what is announced ("8.0 rev/s"). The input is 44 px tall, the touch-target size the buttons use, takes a row of its own so a phone gets the widget's full width to drag along, and sets `touch-action: pan-y` so a vertical swipe starting on it still scrolls the page. `sliderValue` (pure, tested) snaps and clamps what the input reports.
+
+The generator has a Slow motion toggle like the intro's, and the first e2e run found two buttons on the page with the same accessible name. A screen reader user listing the page's controls could not tell them apart. The generator's is now "Slow motion for the generator, one eighth of real time", and an e2e test mounts every widget and fails if any two controls on the page share a name.

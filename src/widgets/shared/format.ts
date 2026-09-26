@@ -42,3 +42,8 @@ export function formatRatio(ratio: number, decimals = 2): string {
 export function formatPercent(fraction: number, decimals = 1): string {
   return withUnit(fraction * 100, decimals, '%');
 }
+
+/** A playback rate against real time: "1×", or "1/8×" for slow motion, which is how people say it. */
+export function formatPlayback(rate: number): string {
+  return rate >= 1 ? formatRatio(rate, 0) : `1/${Math.round(1 / rate)}×`;
+}

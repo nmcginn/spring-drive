@@ -7,4 +7,5 @@ export type Mount = (el: HTMLElement) => () => void;
 export const WIDGETS: Readonly<Record<string, () => Promise<{ mount: Mount }>>> = {
   'hero-glide': () => import('./hero-glide/index.ts'),
   runaway: () => import('./runaway/index.ts'),
+  generator: () => import('./generator/index.ts'),
 };
