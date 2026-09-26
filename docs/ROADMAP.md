@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M1 (M0 is in review)
-- Last session: 2026-09-25, M0 scaffold
-- Open PRs waiting on review: #2 (M0 scaffold)
-- Next up: M1 needs M0 merged. With M0 in review and every later task depending on it, the next night either stacks M1 on the M0 branch (one deep) or addresses M0's review.
+- Current milestone: M1 (in review). M0 merged as #2.
+- Last session: 2026-09-26, M1 sim core
+- Open PRs waiting on review: the M1 PR (`nightly/2026-09-26-m1-sim-core`)
+- Next up: every remaining task needs M1. With M1 in review, the next night either addresses its review or stacks one task on its branch, one deep. M2 is next in order; M3 to M7 are equally eligible, since each needs only M1.
 
 ## Open questions for the maintainer
 
@@ -49,7 +49,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M1: Sim core and PHYSICS.md
 
-- [ ] **Detailed-mode simulation, fully parameterised and derived.**
+- [x] **Detailed-mode simulation, fully parameterised and derived.**
   *Needs:* M0.
   - All `src/sim` modules for detailed mode
   - `params.ts` fully populated, every value traced to PHYSICS.md
@@ -147,6 +147,7 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
 
+- **M1: Sim core and PHYSICS.md** (2026-09-26). All of detailed mode in `src/sim`: mainspring (a piecewise-linear torque curve with exact stored energy), train, glide wheel (Coulomb, viscous, and Stribeck friction, so a dying spring stalls the wheel rather than letting it crawl for hours), generator (rectified-mean EMF, duty-averaged brake and charging paths), capacitor and IC (constant power, brownout with restart hysteresis), quartz divider (integer-counted, exact over 72 h), a PID regulator on the crystal's 8 Hz tick, a 4,096 Hz semi-implicit Euler stepper with a term-by-term energy ledger, lock metrics, and seeded shocks. `PHYSICS.md` derives every parameter in `PLAN.md`'s order, with the arithmetic, a table of model predictions the tests assert, and the 72 h energy budget. Physics tests 1, 2, 5, 6, and 8 pass, with every tolerance explained. The full-wind lock time (3.75 s) is asserted exactly. A coverage test ties every `params.ts` export to its `PHYSICS.md` row, label, and value. The IC's 25 nW is labelled an assumption, because its sources could not be opened from the build container. Decisions 19 to 22, and an amendment to 6 (PI became PID).
 - **M0: Scaffold** (2026-09-25). Vite 8 and strict TypeScript 6, ESLint 10 with typescript-eslint, Prettier, Vitest 5, and Playwright 1.63, all behind `npm run check`. `src/runtime` has the scheduler (one loop, global pause, offscreen pause through IntersectionObserver, reduced motion with a per-widget Play button, a clamped step, and a loop that idles when nothing ticks), the light and dark palette (inlined into `index.html` at build time, with every part colour at WCAG AA for text), a HiDPI canvas, and button helpers. A placeholder widget proves it all end to end, on a 380 px touch project and a desktop project. Lint and a DOM-free `tsconfig` enforce `src/sim`'s purity and the scheduler's monopoly on `requestAnimationFrame`, each proven by a fixture that must fail. Jost is bundled from `@fontsource/jost`, and an e2e guard fails any test that makes an off-origin request. CI's `scaffold` gate is gone. The index page has the article's section skeleton with PROSE stubs, and a footnote crediting Bartosz Ciechanowski's *Mechanical Watch* as the inspiration, at the maintainer's request. Decisions 12 to 18, and an amendment to 10.
 
 ## Ideas, not yet scheduled

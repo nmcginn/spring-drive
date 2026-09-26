@@ -4,7 +4,7 @@ Short records of choices that would otherwise get re-litigated. Add them as they
 
 A physical parameter is not a decision. It goes in `PHYSICS.md`. A decision belongs here when it is about how the model or the site is built: an integrator, a control law's update rate, a dependency, a test strategy.
 
-Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0.
+Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1.
 
 ---
 
@@ -31,6 +31,8 @@ The 9R's torque curve, inertias, coil constants, and capacitor values are not pu
 ### 6. The regulator models the principle, not the firmware
 
 Seiko's control law is not public. The model compares rotor pulses against the divided quartz reference and sets brake duty with a discrete PI controller, clamped to [0, 1]. The article says so. Claiming more would break priority 1 in `CLAUDE.md`.
+
+*Amended in M1 (2026-09-26):* the controller is PI on phase plus a speed term, making it a PID. `PLAN.md` offered PI as "a reasonable starting point", and with this plant it was not enough. Duty-to-torque gain is high (the shorted coil has 9× the brake the spring ever needs), and a PI loop on phase is two integrators behind a lag. At low wind, where the steady duty and so the brake's damping are smallest, it rang, and the best PI gains took 10 to 20 s to lock. The speed term is the phase change over the last reference period, which an IC can measure by counting rotor pulses against the reference, so it adds nothing the real hardware could not have. With it, the worst-case lock is about 4 s. The gains and the search that chose them are in `PHYSICS.md`, D6.
 
 ### 7. Canvas 2D or SVG; three.js only for the optional 3D view
 
@@ -89,3 +91,23 @@ Mounting and unmounting a widget, and checking that the scheduler is left with n
 ### 18. Architectural rules are proven by fixtures that must fail
 
 The ESLint rules enforcing the hard boundaries, and the DOM-free `tsconfig` for `src/sim`, are each proven by fixture files under `tests/lint/fixtures` and `tests/types/fixtures`. Vitest lints or typechecks each fixture as if it lived at a real path (`// lint-as: src/sim/fixture.ts`), and asserts that the expected rule fires. A control fixture checks that the scheduler's own exemption works. Without these, a misconfigured rule or an ESLint upgrade that changed a rule's matching would pass every build silently.
+
+### 19. Detailed mode steps at 4,096 Hz, and the regulator updates on the crystal's 8 Hz tick
+
+`PLAN.md` asks for a fixed step of 2 to 4 kHz and for the regulator's update rate to be chosen and recorded.
+
+- **Step: 2⁻¹² s.** It is 8 crystal cycles, so the IC's cycle count advances by a whole number every step, and a reference tick (4,096 cycles) falls exactly on every 512th step. Time is the step count times the step, exact in binary, so neither time nor the reference phase ever accumulates rounding. The fastest thing the model resolves is the capacitor charging through the coil (RC = 10 ms, 41 steps), and the wheel's mechanical time constant is 0.625 s, so semi-implicit Euler is stable with a wide margin. RK4 would buy nothing visible, at four times the cost.
+- **Regulator: once per reference tick, 8 Hz, clocked by the crystal.** Not once per rotor revolution. Both are 8 Hz when locked, but a tick-clocked controller keeps running at the same rate when the wheel is slow, stalled, or overspeeding, which is exactly when it matters. It also gives the loop a fixed sample period, which is what the gains were tuned for. The measured phase error is the wheel's exact angle against the reference. A real IC would see it only as whole rotor pulses; with the rotor at 8 rev/s and the reference at 8 Hz, the difference is below anything a widget could draw.
+- **Power-on aligns the reference to the wheel.** When the IC starts, its counters start from zero, so the reference begins wherever the wheel happens to be. A widget that turns regulation back on after a runaway calls `realignReference`, which does the same, so that the loop does not try to repay every turn the wheel ran ahead while unregulated.
+
+### 20. The generator is modelled by its rectified mean, and the brake by its duty-averaged current
+
+The coil's EMF is AC, and the brake switch chops far faster than the wheel's speed can change. The dynamics use the averages over both: e = k_e·ω is the rectified-mean EMF, and the coil is shorted for a fraction `duty` of the time and charges the capacitor for the rest. That is `PLAN.md`'s τ = k_e²·ω/R_eff with R_eff = R/duty, plus a charging path through a rectifier with a fixed drop. The generator widget (M4) will want the AC waveform itself. A pure function giving the instantaneous EMF from the wheel's angle, whose rectified mean is k_e·ω, belongs in `generator.ts` when that widget needs it. It changes nothing in the dynamics.
+
+### 21. Physics tests assert the numbers PHYSICS.md states, exactly where the model is deterministic
+
+`PHYSICS.md` has a **Model predictions** table: the runaway speed, the lock times, the steady duties, the relock bound. The physics tests assert those values, not looser ones. Lock times are asserted exactly. They are multiples of the 0.125 s reference period, and the simulation is deterministic (decision 2), so a change that moves one by a period is a change in the physics, and has to move `PHYSICS.md` with it. Continuous values get tolerances, each with a comment saying why it is that wide. The parameter tables themselves are checked mechanically: `tests/sim/params-coverage.test.ts` fails if any constant exported from `params.ts` lacks a row, if a row names a constant that does not exist, if a label is not one of the three, or if a value disagrees with the code to the digits shown.
+
+### 22. Energy is booked term by term, not as a remainder
+
+Test 5 would prove nothing if one ledger term were computed as whatever balances the rest. Every flow is booked from its own formula as it happens: spring energy from the exact area under the torque curve; train loss as its efficiency share; friction as torque times angle; coil and rectifier heat from I²R and the drop; the IC as power times time; and shocks as their change in kinetic energy. Kinetic and capacitor energy are state, not ledger. The residue, of order dt·Δω per step, comes from booking mechanical terms at each step's mean speed and electrical ones at its start. It measures under 3 parts in 10⁶, and the test allows 1 in 10⁵.
