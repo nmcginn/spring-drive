@@ -14,7 +14,7 @@ import { coilCurrents, coilLossesW, generatorTorqueNm } from './generator.ts';
 import { capEnergyJ, icCurrentA, nextCapVoltageV, nextIcOn } from './power.ts';
 import { cyclesPerReferenceTick, cyclesPerStep, referencePhaseRad } from './quartz.ts';
 import { nextOmegaRadS, rotorKineticEnergyJ, stepFrictionTorqueNm } from './rotor.ts';
-import { fullWindAngleRad, mainspringEnergyJ, mainspringTorqueNm } from './mainspring.ts';
+import { fullWindAngleRad, mainspringEnergyJ, mainspringTorqueNm, windBarrel } from './mainspring.ts';
 import { regulatorUpdate } from './regulator.ts';
 import type { EnergyLedger, Sample, Scenario, SimControls, SimParams, SimState } from './types.ts';
 
@@ -49,7 +49,7 @@ export interface InitialConditions {
 }
 
 function emptyLedger(): EnergyLedger {
-  return { springJ: 0, trainLossJ: 0, frictionJ: 0, coilJ: 0, rectifierJ: 0, icJ: 0, shockJ: 0 };
+  return { springJ: 0, trainLossJ: 0, frictionJ: 0, coilJ: 0, rectifierJ: 0, icJ: 0, shockJ: 0, windJ: 0 };
 }
 
 export function createState(params: SimParams, initial: InitialConditions = {}): SimState {
@@ -190,6 +190,22 @@ export function applyShock(state: SimState, deltaOmegaRadS: number, params: SimP
   const omega1 = Math.max(0, s.rotorOmegaRadS + deltaOmegaRadS);
   s.energy.shockJ += rotorKineticEnergyJ(omega1, params) - rotorKineticEnergyJ(s.rotorOmegaRadS, params);
   s.rotorOmegaRadS = omega1;
+  return s;
+}
+
+/**
+ * Wind the mainspring by `windRad` of barrel angle, as the crown or the
+ * automatic rotor would, clamped at full wind where the bridle slips. The
+ * work done winding is booked as `windJ`, and the spring's release as
+ * negative by the same amount, so the ledger still closes across a wind. Nothing else changes: the glide wheel keeps turning.
+ */
+export function windDetailed(state: SimState, windRad: number, params: SimParams): SimState {
+  const s = cloneState(state);
+  const barrel1 = windBarrel(s.barrelAngleRad, windRad, params);
+  const woundJ = mainspringEnergyJ(barrel1, params) - mainspringEnergyJ(s.barrelAngleRad, params);
+  s.energy.springJ -= woundJ;
+  s.energy.windJ += woundJ;
+  s.barrelAngleRad = barrel1;
   return s;
 }
 

@@ -21,8 +21,8 @@ src/
     power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
     quartz.ts               The 32,768 Hz divider chain and the integer-counted reference phase.
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
-    detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, realignment, and runScenario.
-    averaged.ts             Quasi-steady mode for hours and days: five regimes, exact event times, runAveragedScenario.
+    detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, winding, realignment, and runScenario.
+    averaged.ts             Quasi-steady mode for hours and days: five regimes, exact event times, winding, runAveragedScenario, and the handover to and from detailed mode.
     metrics.ts              Lock: its definition and the time it is gained. Rate error in s/day.
     rng.ts                  Seeded Mulberry32, the sim's only randomness.
     shocks.ts               Seeded random shock schedules.
@@ -30,10 +30,16 @@ src/
     scheduler.ts            The one animation loop: shouldTick, frameDtS, createScheduler, and the browser env.
     palette.ts              Part and UI colour tokens for light and dark, paletteCss, WCAG contrast helpers.
     canvas.ts               HiDPI canvas that tracks its container's width, capped at 2x.
-    controls.ts             Button helper and the reduced-motion Play/Pause button.
+    controls.ts             Button and toggle helpers, and the reduced-motion Play/Pause button.
   widgets/
     registry.ts             Widget IDs mapped to lazy imports.
-    placeholder/            M0's stand-in widget, replaced from M3 on. logic.ts is pure; index.ts mounts it.
+    shared/                 What every widget uses (decision 27):
+      shell.ts                The canvas, readouts, controls, scheduler registration, and unmount.
+      format.ts               Readout values with their units.
+      dial.ts                 Hand angles and dial geometry, pure.
+      draw.ts                 Canvas drawing of dials, hands, and labels.
+    hero-glide/             The intro: a gliding Spring Drive beside a ticking watch, with loupes (decision 29). logic.ts is pure; index.ts mounts and draws.
+    runaway/                The unbraked glide wheel, wound, in real time or fast-forward (decision 28). logic.ts is pure; index.ts mounts and draws.
 tools/
   sim-cli.ts                `npm run sim -- <scenario>… | all [--out <dir>]`: main(argv, io) returns the exit code.
   scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
@@ -44,13 +50,13 @@ tests/
   sim/                      Vitest, under Node: all eight physics tests from PLAN.md, a unit test per module, PHYSICS.md coverage.
   tools/                    Vitest: the CSV format and the CLI's contract.
   runtime/                  Vitest: scheduler (with fake-env.ts), palette, canvas, controls.
-  widgets/                  Vitest: pure widget logic under Node, and mount/unmount under happy-dom.
+  widgets/                  Vitest: each widget's pure logic, formatting, and dial geometry under Node; the widget contract for every widget under happy-dom (mount.test.ts).
   lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18).
   page.test.ts              Vitest: index.html's data-part names, widget slots, and origins.
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists the real widgets (M3 to M8). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has only the button helpers so far; sliders, scrubbers, and toggles arrive with the first widget that needs them.
+The target in `PLAN.md` also lists the widgets still to come (M4 to M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons and toggles so far; sliders and scrubbers arrive with the first widget that needs them.
 
 ## The rule: physics, runtime, and widgets stay separate
 

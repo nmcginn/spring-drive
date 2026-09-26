@@ -25,7 +25,7 @@
 
 import { capEnergyJ } from './power.ts';
 import { emfV } from './generator.ts';
-import { mainspringEnergyJ, mainspringTorqueNm, fullWindAngleRad } from './mainspring.ts';
+import { mainspringEnergyJ, mainspringTorqueNm, fullWindAngleRad, windBarrel } from './mainspring.ts';
 import { referenceHz } from './quartz.ts';
 import { breakawayTorqueNm, frictionMinimumOmegaRadS, frictionTorqueNm } from './rotor.ts';
 import { reflectedDriveTorqueNm } from './train.ts';
@@ -351,7 +351,7 @@ export interface AveragedInitialConditions {
 }
 
 function emptyLedger(): EnergyLedger {
-  return { springJ: 0, trainLossJ: 0, frictionJ: 0, coilJ: 0, rectifierJ: 0, icJ: 0, shockJ: 0 };
+  return { springJ: 0, trainLossJ: 0, frictionJ: 0, coilJ: 0, rectifierJ: 0, icJ: 0, shockJ: 0, windJ: 0 };
 }
 
 function cloneState(state: AveragedState): AveragedState {
@@ -417,6 +417,64 @@ export function averagedFromDetailed(state: SimState, params: SimParams): Averag
     regime: 'free',
     energy: { ...state.energy },
   };
+}
+
+/**
+ * The reverse of `averagedFromDetailed`: carry on in detailed mode from a
+ * settled averaged state. Time is rounded to a whole detailed step (at most
+ * half a step, 0.12 ms). The reference is placed so the phase error carries
+ * over, and the controller's integral is set to the value that makes its
+ * output the averaged duty at that phase error, with no speed error. From a
+ * regulated state the detailed run is therefore on the steady duty from its
+ * first step, and locked from its first reference tick, instead of starting
+ * with a wound-up controller and relocking. This is how a widget opens on a
+ * movement that has been running for a while, and how one leaves
+ * fast-forward.
+ */
+export function detailedFromAveraged(state: AveragedState, params: SimParams): SimState {
+  validateParams(params);
+  const step = Math.round(state.timeS / params.stepS);
+  const phase = state.icOn ? state.phaseErrorRad : 0;
+  const duty = state.icOn ? state.duty : 0;
+  const integralRadS =
+    params.regulatorKiPerRadS > 0 ? (duty - params.regulatorKpPerRad * phase) / params.regulatorKiPerRadS : 0;
+  return {
+    step,
+    timeS: step * params.stepS,
+    rotorAngleRad: state.rotorAngleRad,
+    rotorOmegaRadS: state.rotorOmegaRadS,
+    barrelAngleRad: state.barrelAngleRad,
+    capVoltageV: state.capVoltageV,
+    regulator: {
+      icOn: state.icOn,
+      quartzCycles: 0,
+      referenceOriginRad: state.rotorAngleRad - phase,
+      integralRadS,
+      duty,
+      lastPhaseErrorRad: phase,
+    },
+    energy: { ...state.energy },
+  };
+}
+
+/**
+ * Wind the mainspring by `windRad` of barrel angle, clamped at full wind,
+ * and settle into whatever the stronger spring does. The ledger books the
+ * wind as detailed mode's `windDetailed` does.
+ */
+export function windAveraged(
+  state: AveragedState,
+  windRad: number,
+  params: SimParams,
+  controls: SimControls,
+): AveragedState {
+  const s = cloneState(state);
+  const barrel1 = windBarrel(s.barrelAngleRad, windRad, params);
+  const woundJ = mainspringEnergyJ(barrel1, params) - mainspringEnergyJ(s.barrelAngleRad, params);
+  s.energy.springJ -= woundJ;
+  s.energy.windJ += woundJ;
+  s.barrelAngleRad = barrel1;
+  return settle(s, params, controls);
 }
 
 /** Apply an operating point for `dtS`, in place. */

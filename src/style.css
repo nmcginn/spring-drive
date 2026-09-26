@@ -115,6 +115,14 @@ a {
   touch-action: manipulation;
 }
 
+.control-button[aria-pressed='true'] {
+  /* A toggle that is on is shown inverted, so its state is visible as well
+     as announced. */
+  background: var(--ui-on-accent);
+  color: var(--ui-accent);
+  box-shadow: inset 0 0 0 2px var(--ui-accent);
+}
+
 .control-button:focus-visible,
 .global-pause:focus-visible {
   outline: 2px solid var(--ui-text);

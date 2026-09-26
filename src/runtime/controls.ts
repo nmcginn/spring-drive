@@ -63,3 +63,49 @@ export function createMotionButton(widgetName: string, getHandle: () => Handle |
     },
   };
 }
+
+export interface ToggleOptions {
+  /** The visible label. It names the mode, and stays the same when on or off. */
+  label: string;
+  /** Accessible name, when the visible label alone is ambiguous. */
+  ariaLabel?: string;
+  initial?: boolean;
+  onChange: (on: boolean) => void;
+}
+
+export interface Toggle {
+  element: HTMLButtonElement;
+  isOn(): boolean;
+  /** Set the state without calling `onChange`, as when the widget resets. */
+  set(on: boolean): void;
+}
+
+/**
+ * A button that switches a mode on and off, such as slow motion. Unlike the
+ * Play button, its label names the mode rather than the action, so its
+ * state is carried by `aria-pressed`, which screen readers announce, and
+ * shown by the `.control-button[aria-pressed="true"]` style.
+ */
+export function createToggle(options: ToggleOptions): Toggle {
+  let on = options.initial ?? false;
+  const element = createButton({
+    label: options.label,
+    ...(options.ariaLabel === undefined ? {} : { ariaLabel: options.ariaLabel }),
+    onPress: () => {
+      on = !on;
+      sync();
+      options.onChange(on);
+    },
+  });
+  element.classList.add('control-toggle');
+  const sync = () => element.setAttribute('aria-pressed', String(on));
+  sync();
+  return {
+    element,
+    isOn: () => on,
+    set(next) {
+      on = next;
+      sync();
+    },
+  };
+}

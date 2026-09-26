@@ -39,7 +39,7 @@ function balance(
   const before = storedEnergyJ(initial, P);
   const after = storedEnergyJ(final, P);
   const e = final.energy;
-  const inJ = e.springJ + e.shockJ;
+  const inJ = e.springJ + e.shockJ + e.windJ;
   const outJ =
     e.trainLossJ +
     e.frictionJ +

@@ -64,6 +64,15 @@ export const IC_BROWNOUT_V = 0.6;
 export const IC_START_V = 0.75;
 export const CAPACITANCE_F = 1e-7;
 
+// The comparison watch ---------------------------------------------------------
+
+/**
+ * Beats per second of the ordinary mechanical watch the intro sets beside the
+ * Spring Drive: 28,800 vibrations an hour. Not part of the Spring Drive model;
+ * nothing in the simulation reads it.
+ */
+export const MECHANICAL_BEAT_HZ = 8;
+
 // Model choices ---------------------------------------------------------------
 
 /** 2⁻¹² s: 4,096 steps per second, 8 crystal cycles per step, 512 per reference tick. */
