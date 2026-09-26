@@ -12,16 +12,17 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M1 (in review). M0 merged as #2.
-- Last session: 2026-09-26, M1 sim core
-- Open PRs waiting on review: the M1 PR (`nightly/2026-09-26-m1-sim-core`)
-- Next up: every remaining task needs M1. With M1 in review, the next night either addresses its review or stacks one task on its branch, one deep. M2 is next in order; M3 to M7 are equally eligible, since each needs only M1.
+- Current milestone: M2 (in review). M0 merged as #2, M1 as #5.
+- Last session: 2026-09-26, M2 averaged mode and CLI
+- Open PRs waiting on review: the M2 PR (`nightly/2026-09-26-m2-averaged-cli`)
+- Next up: M3 (`runaway` and `hero-glide`). It needs only M1, which has merged, so it branches from `master` while M2 is in review. M4 to M7 are equally eligible. M8 needs M2, and may stack on its branch, one deep. M3 is the first widget, so the screenshots question below becomes live with it.
 
 ## Open questions for the maintainer
 
 Questions the nightly loop could not answer without guessing at physics, architecture, or the article's structure. Each one names the task it blocks. When the maintainer answers, record the answer in `docs/DECISIONS.md`, add a *Decided* note to the task pointing at it, and delete the question here.
 
 - **How should widget screenshots reach a pull request?** (First needed by M3.) CLAUDE.md requires screenshots for widget work. By default, CI's `e2e` job uploads them as a `screenshots` artifact on the run, and the PR description says which files to look at. That means downloading a zip to review. The alternative is committing them under `docs/screenshots/<milestone>/`, so they render inline in the PR's diff, at the cost of binary churn in the history. Until this is answered, the nightly loop uses the CI artifact.
+- **Should the model's crystal have a frequency error?** (Blocks nothing yet; first matters for M8, if it shows a rate readout.) The model's quartz runs at exactly 32,768 Hz, so while regulated its rate error is zero (PHYSICS.md, D7), and test 3's ±0.5 s/day is met trivially. Real watch crystals are cut to a tolerance of some parts per million and drift with temperature, and that, not the loop, is what a rated ±15 s/month mostly allows for. A `QUARTZ_OFFSET_PPM` assumption would make the rate readout say something, at the cost of a number with no published 9R source. Until this is answered, the crystal stays exact and the article must not present the model's zero as the 9R's accuracy.
 
 ---
 
@@ -65,7 +66,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M2: Averaged mode and CLI
 
-- [ ] **Averaged mode, the headless scenario runner, and the long-horizon tests.**
+- [x] **Averaged mode, the headless scenario runner, and the long-horizon tests.**
   *Needs:* M1.
   - `averaged.ts`
   - `tools/sim-cli.ts` with scenarios: `full-wind-lock`, `runaway`, `rate-24h`, `rundown-72h`, `shock`
@@ -147,6 +148,7 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
 
+- **M2: Averaged mode and CLI** (2026-09-26). `src/sim/averaged.ts`: a quasi-steady mode in steps of up to 1 s. The glide wheel sits where its torques balance and the capacitor where its currents balance, in one of five regimes: regulated (solved in closed form), catching up, holding back, free, and stalled. Phase error returning to zero and a capacitor browning out are located exactly within a step, so one 10 h call equals 36,000 one-second ones. A full 72 h run-down takes well under a second. Physics tests 3 (rate: 0 s/day while regulated, because the crystal is exact; see the open question), 4 (regulation for 70.645 h, brownout at 70.848 h and 6.433 rev/s, stall at 73.725 h, and the energy ledger closes to 10⁻⁹), and 7 (the modes agree to 10⁻⁶ in speed and 0.02 s/day in rate while regulated, and to 2 × 10⁻⁴ unregulated, each gap explained and measured) pass. `npm run sim -- <scenario>` writes a CSV with units in every header for `full-wind-lock`, `runaway`, `rate-24h`, `rundown-72h`, and `shock`. CI and `npm run check` run all five. `tsx` is a new dev dependency. PHYSICS.md gains `AVERAGED_STEP_S`, derivation D7, and the run-down predictions. Decisions 23 and 24.
 - **M1: Sim core and PHYSICS.md** (2026-09-26). All of detailed mode in `src/sim`: mainspring (a piecewise-linear torque curve with exact stored energy), train, glide wheel (Coulomb, viscous, and Stribeck friction, so a dying spring stalls the wheel rather than letting it crawl for hours), generator (rectified-mean EMF, duty-averaged brake and charging paths), capacitor and IC (constant power, brownout with restart hysteresis), quartz divider (integer-counted, exact over 72 h), a PID regulator on the crystal's 8 Hz tick, a 4,096 Hz semi-implicit Euler stepper with a term-by-term energy ledger, lock metrics, and seeded shocks. `PHYSICS.md` derives every parameter in `PLAN.md`'s order, with the arithmetic, a table of model predictions the tests assert, and the 72 h energy budget. Physics tests 1, 2, 5, 6, and 8 pass, with every tolerance explained. The full-wind lock time (3.75 s) is asserted exactly. A coverage test ties every `params.ts` export to its `PHYSICS.md` row, label, and value. The IC's 25 nW is labelled an assumption, because its sources could not be opened from the build container. Decisions 19 to 22, and an amendment to 6 (PI became PID).
 - **M0: Scaffold** (2026-09-25). Vite 8 and strict TypeScript 6, ESLint 10 with typescript-eslint, Prettier, Vitest 5, and Playwright 1.63, all behind `npm run check`. `src/runtime` has the scheduler (one loop, global pause, offscreen pause through IntersectionObserver, reduced motion with a per-widget Play button, a clamped step, and a loop that idles when nothing ticks), the light and dark palette (inlined into `index.html` at build time, with every part colour at WCAG AA for text), a HiDPI canvas, and button helpers. A placeholder widget proves it all end to end, on a 380 px touch project and a desktop project. Lint and a DOM-free `tsconfig` enforce `src/sim`'s purity and the scheduler's monopoly on `requestAnimationFrame`, each proven by a fixture that must fail. Jost is bundled from `@fontsource/jost`, and an e2e guard fails any test that makes an off-origin request. CI's `scaffold` gate is gone. The index page has the article's section skeleton with PROSE stubs, and a footnote crediting Bartosz Ciechanowski's *Mechanical Watch* as the inspiration, at the maintainer's request. Decisions 12 to 18, and an amendment to 10.
 

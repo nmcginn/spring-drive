@@ -60,3 +60,15 @@ export function stepFrictionTorqueNm(omegaRadS: number, params: SimParams): numb
 export function rotorKineticEnergyJ(omegaRadS: number, params: SimParams): number {
   return 0.5 * params.rotorInertiaKgM2 * omegaRadS * omegaRadS;
 }
+
+/**
+ * The speed at which running friction is lowest, rad/s (PHYSICS.md, D3).
+ * Below it, friction rises as the wheel slows, so a drive weaker than the
+ * friction here has no running speed to settle at and the wheel stalls.
+ * Zero when the Stribeck excess is too small to make a dip at all.
+ */
+export function frictionMinimumOmegaRadS(params: SimParams): number {
+  const excessNm = params.frictionStaticNm - params.frictionCoulombNm;
+  const ratio = excessNm / (params.frictionStribeckRadS * params.frictionViscousNmSRad);
+  return ratio > 1 ? params.frictionStribeckRadS * Math.log(ratio) : 0;
+}

@@ -64,6 +64,8 @@ export interface SimParams {
 
   /** Detailed mode's fixed timestep, s. */
   stepS: number;
+  /** Averaged mode's longest step, s. */
+  averagedStepS: number;
 }
 
 /** What a reader, a widget, or a scenario can switch. */
@@ -154,4 +156,49 @@ export interface Sample {
   icOn: boolean;
   duty: number;
   phaseErrorRad: number;
+}
+
+/**
+ * What averaged mode says the movement is doing over a step. Each is a
+ * quasi-steady state: the glide wheel's speed is wherever its torques
+ * balance, and the capacitor is wherever its currents balance.
+ *
+ * - `regulated`: the IC holds the glide wheel at the reference with a steady
+ *   brake duty, and phase error stays at zero.
+ * - `catching-up`: behind the reference with a spring strong enough to catch
+ *   it, the brake is off until the wheel does.
+ * - `holding-back`: ahead of the reference, the brake is fully on, and the IC
+ *   runs from the capacitor alone until the wheel falls back or the
+ *   capacitor browns out.
+ * - `free`: no braking. The brake is disabled, the IC is off, or the spring
+ *   is too weak to reach the target.
+ * - `stalled`: the drive cannot beat friction, and the wheel is at rest.
+ */
+export type AveragedRegime = 'regulated' | 'catching-up' | 'holding-back' | 'free' | 'stalled';
+
+/** Averaged mode's state. The same quantities as `SimState`, without the sub-turn detail. */
+export interface AveragedState {
+  timeS: number;
+  /** Unwrapped glide wheel angle, rad. */
+  rotorAngleRad: number;
+  rotorOmegaRadS: number;
+  barrelAngleRad: number;
+  capVoltageV: number;
+  icOn: boolean;
+  /** Mean brake duty over the last step. Zero while the IC is off. */
+  duty: number;
+  /** How far the glide wheel is ahead of the reference, rad. Zero while the IC is off. */
+  phaseErrorRad: number;
+  regime: AveragedRegime;
+  energy: EnergyLedger;
+}
+
+/** A complete, reproducible averaged-mode run. Shocks are too brief for averaged mode, so it takes none. */
+export interface AveragedScenario {
+  params: SimParams;
+  initial: AveragedState;
+  controls: SimControls;
+  durationS: number;
+  /** Record a sample this often. Rounded to whole averaged steps. */
+  sampleIntervalS: number;
 }
