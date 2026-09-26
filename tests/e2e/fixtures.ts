@@ -85,3 +85,17 @@ export async function press(locator: Locator): Promise<void> {
   if (hasTouch) await locator.tap();
   else await locator.click();
 }
+
+/**
+ * Set a slider the way the current project's reader would: a tap on its
+ * track on the touch project, a click on desktop, at `fraction` of the way
+ * along it. The browser moves the thumb there and fires `input`.
+ */
+export async function pressAt(locator: Locator, fraction: number): Promise<void> {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error('slider is not laid out');
+  const position = { x: box.width * fraction, y: box.height / 2 };
+  const hasTouch = await locator.page().evaluate(() => navigator.maxTouchPoints > 0);
+  if (hasTouch) await locator.tap({ position });
+  else await locator.click({ position });
+}

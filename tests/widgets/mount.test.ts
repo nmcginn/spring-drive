@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { createScheduler } from '../../src/runtime/scheduler.ts';
+import { mount as mountGenerator } from '../../src/widgets/generator/index.ts';
 import { mount as mountHero } from '../../src/widgets/hero-glide/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
@@ -17,6 +18,7 @@ const FRAME_MS = 1000 / 60;
 const WIDGETS = [
   { id: 'hero-glide', mount: mountHero, className: 'widget-hero-glide' },
   { id: 'runaway', mount: mountRunaway, className: 'widget-runaway' },
+  { id: 'generator', mount: mountGenerator, className: 'widget-generator' },
 ] as const;
 
 function setup(w: (typeof WIDGETS)[number], options: { reducedMotion?: boolean } = {}) {
@@ -196,5 +198,62 @@ describe('runaway: controls', () => {
     env.frame(0);
     env.frame(10 * 60 * 1000);
     expect(values()[3]).toBe('6\u202fmin 00\u202fs');
+  });
+});
+
+describe('generator: controls', () => {
+  const generator = WIDGETS[2];
+  const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
+  function drag(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('has a speed slider, its primary control, labelled and starting at 8 rev/s', () => {
+    const { root } = setup(generator);
+    const input = slider(root());
+    expect(input.closest('label')?.textContent).toBe('Glide wheel speed');
+    expect(input.value).toBe('8');
+    expect(input.getAttribute('aria-valuetext')).toBe('8.0\u202frev/s');
+  });
+
+  it('sets the speed, and the EMF readouts follow it, even while not animating', () => {
+    const { root, values } = setup(generator);
+    drag(slider(root()), '16');
+    expect(values().slice(0, 4)).toEqual(['16.0\u202frev/s', '16.0\u202fHz', '3.14\u202fV', '2.00\u202fV']);
+    drag(slider(root()), '0');
+    expect(values()[2]).toBe('0.00\u202fV');
+  });
+
+  it('keeps the speed it was given across animation, pause, and resume', () => {
+    const { env, scheduler, root, values } = setup(generator);
+    env.setVisible(root(), true);
+    env.frames(0, 10, FRAME_MS);
+    drag(slider(root()), '4.5');
+    env.frames(500, 10, FRAME_MS);
+    scheduler.setGloballyPaused(true);
+    drag(slider(root()), '12');
+    scheduler.setGloballyPaused(false);
+    env.frames(2000, 10, FRAME_MS);
+    expect(values()[0]).toBe('12.0\u202frev/s');
+  });
+
+  it('switches to slow motion and back', () => {
+    const { button, values } = setup(generator);
+    const slow = button('Slow motion for the generator, one eighth of real time');
+    slow.click();
+    expect(slow.getAttribute('aria-pressed')).toBe('true');
+    expect(values()).toContain('1/8× real time');
+    slow.click();
+    expect(values()).toContain('1× real time');
+  });
+
+  it('survives a ten-minute frame gap as one clamped 0.1 s step', () => {
+    const { env, root, ticks, values } = setup(generator);
+    env.setVisible(root(), true);
+    env.frame(0);
+    env.frame(10 * 60 * 1000);
+    expect(ticks()).toBe(2);
+    expect(values()[0]).toBe('8.0\u202frev/s');
   });
 });

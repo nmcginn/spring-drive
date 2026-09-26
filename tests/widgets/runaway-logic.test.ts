@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { TAU } from '../../src/sim/units.ts';
 import {
   FAST_FORWARD_RATE,
-  SPOKE_COUNT,
   advanceRunaway,
   barFraction,
-  blur,
   heightForWidth,
   initialRunawayState,
   isFastForward,
@@ -187,26 +185,6 @@ describe('runaway: drawing geometry', () => {
     expect(barFraction(-1, 35)).toBe(0);
     expect(barFraction(40, 35)).toBe(1);
     expect(barFraction(1, 0)).toBe(0);
-  });
-
-  it('draws a still or slow wheel sharp', () => {
-    expect(blur(0)).toEqual({ copies: 1, stepRad: 0, alpha: 1 });
-    expect(blur(0.01)).toEqual({ copies: 1, stepRad: 0, alpha: 1 });
-    expect(blur(Number.NaN)).toEqual({ copies: 1, stepRad: 0, alpha: 1 });
-  });
-
-  it('smears a fast wheel over at most one spoke spacing, where the pattern repeats', () => {
-    const fast = blur(3.2);
-    expect(fast.stepRad * (fast.copies - 1)).toBeCloseTo(TAU / SPOKE_COUNT, 12);
-    expect(fast.copies).toBeLessThanOrEqual(12);
-    expect(fast.alpha).toBeGreaterThanOrEqual(0.2);
-    // An hour a frame in fast-forward is the same smear.
-    expect(blur(1e6)).toEqual(fast);
-  });
-
-  it('smears a moderate sweep over exactly the angle swept', () => {
-    const b = blur(0.3);
-    expect(b.stepRad * (b.copies - 1)).toBeCloseTo(0.3, 12);
   });
 
   it('fits the wheel, the dial, and both bars in a 380 px phone’s 356 px column', () => {

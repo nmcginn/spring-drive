@@ -43,6 +43,12 @@ export interface SimParams {
 
   /** Generator constant: rectified-mean EMF per unit speed, V·s/rad. */
   generatorKeVSRad: number;
+  /**
+   * North-south pole pairs on the glide wheel's magnet: electrical cycles of
+   * the coil's EMF per turn. Only the waveform depends on it; the dynamics
+   * use the rectified mean, which does not.
+   */
+  generatorPolePairs: number;
   coilResistanceOhm: number;
   /** Voltage lost across the rectifier while it conducts, V. */
   rectifierDropV: number;

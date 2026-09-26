@@ -8,7 +8,6 @@ import {
   advanceHero,
   beatStepRad,
   elapsedS,
-  formatPlayback,
   heightForWidth,
   heroLayout,
   initialHeroState,
@@ -138,8 +137,6 @@ describe('hero-glide: readouts', () => {
   it('say when slow motion is on', () => {
     const slow = readouts(setSlowMotion(initialHeroState(P), true));
     expect(slow.find((r) => r.label === 'Playback')?.value).toBe('1/8× real time');
-    expect(formatPlayback(1)).toBe('1×');
-    expect(formatPlayback(0.25)).toBe('1/4×');
   });
 });
 

@@ -18,7 +18,7 @@ import { MECHANICAL_BEAT_HZ } from '../../sim/params.ts';
 import type { SimParams, SimState } from '../../sim/types.ts';
 import { TAU, radSToRevS } from '../../sim/units.ts';
 import { SECONDS_PER_MINUTE, type Point } from '../shared/dial.ts';
-import { formatRatio, withUnit } from '../shared/format.ts';
+import { formatPlayback, withUnit } from '../shared/format.ts';
 
 const REGULATED = { brakeEnabled: true } as const;
 
@@ -95,11 +95,6 @@ export function beatStepRad(beatHz: number = MECHANICAL_BEAT_HZ): number {
 }
 
 // Readouts ---------------------------------------------------------------------
-
-export function formatPlayback(rate: number): string {
-  // A rate below 1 reads as a fraction, "1/8×", which is how people say it.
-  return rate >= 1 ? formatRatio(rate, 0) : `1/${Math.round(1 / rate)}×`;
-}
 
 export function readouts(state: HeroState) {
   const degreesPerBeat = (beatStepRad() * 360) / TAU;

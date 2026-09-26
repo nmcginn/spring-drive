@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { THEMES } from '../../src/runtime/palette.ts';
-import { expect, expectStill, expectTicking, frames, press, readout, test, ticks } from './fixtures.ts';
+import { expect, expectStill, expectTicking, frames, press, pressAt, readout, test, ticks } from './fixtures.ts';
 
 // Every widget is proven the same way: it mounts lazily, animates through the
 // scheduler, stops offscreen, on global pause, and under reduced motion, and
@@ -10,10 +10,12 @@ import { expect, expectStill, expectTicking, frames, press, readout, test, ticks
 
 const HERO = '.widget-hero-glide';
 const RUNAWAY = '.widget-runaway';
+const GENERATOR = '.widget-generator';
 
 const WIDGETS = [
   { name: 'hero-glide', selector: HERO, playName: 'the two watches' },
   { name: 'runaway', selector: RUNAWAY, playName: 'the runaway glide wheel' },
+  { name: 'generator', selector: GENERATOR, playName: 'the generator' },
 ] as const;
 
 /** Bring a widget into view; lower widgets mount only as they near the viewport. */
@@ -205,6 +207,87 @@ test.describe('runaway', () => {
   });
 });
 
+test.describe('generator', () => {
+  const speed = (page: Page) => page.getByRole('slider', { name: 'Glide wheel speed' });
+  const value = async (page: Page, label: string) =>
+    parseFloat((await readout(page, GENERATOR, label).textContent()) ?? '');
+
+  test('opens at 8 rev/s, with the EMF readouts the model gives there', async ({ page, snap }) => {
+    await open(page, 'generator', GENERATOR);
+    await expect(readout(page, GENERATOR, 'Glide wheel speed')).toHaveText('8.0\u202frev/s');
+    await expect(readout(page, GENERATOR, 'EMF frequency')).toHaveText('8.0\u202fHz');
+    // PHYSICS.md, D9: a sine whose rectified mean is D4's 1.0 V peaks at π/2 V.
+    await expect(readout(page, GENERATOR, 'Peak EMF')).toHaveText('1.57\u202fV');
+    await expect(readout(page, GENERATOR, 'Rectified mean EMF')).toHaveText('1.00\u202fV');
+    await expect(speed(page)).toHaveAttribute('aria-valuetext', '8.0\u202frev/s');
+    await expect.poll(() => ticks(page, GENERATOR)).toBeGreaterThan(30);
+    await snap(page, 'generator');
+  });
+
+  test('tapping or clicking the speed slider, its primary control, sets the speed and the EMF follows', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'generator', GENERATOR);
+    await pressAt(speed(page), 0.97);
+    // Near the top of the 0 to 16 rev/s slider; the thumb's own width keeps
+    // the value a little short of where the tap lands.
+    await expect.poll(() => value(page, 'Glide wheel speed')).toBeGreaterThan(14);
+    const revS = await value(page, 'Glide wheel speed');
+    // Everything is proportional to speed: 1 Hz, π/16 V peak, and 1/8 V mean per rev/s.
+    expect(await value(page, 'EMF frequency')).toBeCloseTo(revS, 1);
+    expect(await value(page, 'Peak EMF')).toBeCloseTo((Math.PI / 16) * revS, 1);
+    expect(await value(page, 'Rectified mean EMF')).toBeCloseTo(revS / 8, 1);
+    await expectTicking(page, GENERATOR);
+    // Let the new speed fill the half-second scope before the screenshot.
+    await frames(page, 40);
+    await snap(page, 'generator-fast');
+
+    await pressAt(speed(page), 0.2);
+    await expect.poll(() => value(page, 'Glide wheel speed')).toBeLessThan(5);
+    await frames(page, 40);
+    await snap(page, 'generator-slow');
+  });
+
+  test('steps with the arrow keys, 0.1 rev/s at a time', async ({ page }) => {
+    await open(page, 'generator', GENERATOR);
+    await speed(page).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(readout(page, GENERATOR, 'Glide wheel speed')).toHaveText('7.9\u202frev/s');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(readout(page, GENERATOR, 'Glide wheel speed')).toHaveText('8.1\u202frev/s');
+  });
+
+  test('under reduced motion, redraws the still frame at a new speed', async ({ page, snap }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, 'generator', GENERATOR);
+    await pressAt(speed(page), 0.97);
+    await expect.poll(() => value(page, 'Glide wheel speed')).toBeGreaterThan(14);
+    await expectStill(page, GENERATOR);
+    await snap(page, 'generator-reduced-motion-fast');
+  });
+
+  test('slows to an eighth of real time, and back', async ({ page, snap }) => {
+    await open(page, 'generator', GENERATOR);
+    const slow = page.getByRole('button', { name: 'Slow motion for the generator, one eighth of real time' });
+    await press(slow);
+    await expect(slow).toHaveAttribute('aria-pressed', 'true');
+    await expect(readout(page, GENERATOR, 'Playback')).toHaveText('1/8× real time');
+    await expectTicking(page, GENERATOR);
+    await snap(page, 'generator-slow-motion');
+    await press(slow);
+    await expect(readout(page, GENERATOR, 'Playback')).toHaveText('1× real time');
+  });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'generator', GENERATOR);
+    await expect.poll(() => ticks(page, GENERATOR)).toBeGreaterThan(30);
+    await snap(page, 'generator-dark');
+  });
+});
+
 test.describe('page', () => {
   test('serves Jost from its own origin and makes no request to any other', async ({ page }) => {
     const fontRequests: string[] = [];
@@ -260,6 +343,20 @@ test.describe('page', () => {
     for (const w of WIDGETS) await reach(page, w.name, w.selector);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('gives every control on the page its own accessible name, so no two widgets’ controls are confused', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    for (const w of WIDGETS) await reach(page, w.name, w.selector);
+    const names = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('button, input')].map(
+        (el) => el.getAttribute('aria-label') ?? el.closest('label')?.textContent ?? el.textContent ?? '',
+      ),
+    );
+    expect(names.length).toBeGreaterThan(WIDGETS.length);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   test('stops on global pause, with a screenshot of the paused page', async ({ page, snap }) => {

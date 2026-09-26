@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { UNIT_SPACE, formatDuration, formatPercent, formatRatio, withUnit } from '../../src/widgets/shared/format.ts';
+import {
+  UNIT_SPACE,
+  formatDuration,
+  formatPercent,
+  formatPlayback,
+  formatRatio,
+  withUnit,
+} from '../../src/widgets/shared/format.ts';
 
 describe('withUnit', () => {
   it('joins value and unit with a narrow no-break space, so a readout never wraps between them', () => {
@@ -59,5 +66,13 @@ describe('formatRatio and formatPercent', () => {
     expect(formatPercent(1)).toBe('100.0\u202f%');
     expect(formatPercent(0.00374)).toBe('0.4\u202f%');
     expect(formatPercent(0)).toBe('0.0\u202f%');
+  });
+});
+
+describe('formatPlayback', () => {
+  it('reads real time as 1×, and slow motion as a fraction, the way people say it', () => {
+    expect(formatPlayback(1)).toBe('1×');
+    expect(formatPlayback(0.25)).toBe('1/4×');
+    expect(formatPlayback(1 / 8)).toBe('1/8×');
   });
 });

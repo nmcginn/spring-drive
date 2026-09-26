@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M3 done, in review. M0 merged as #2, M1 as #5, M2 as #6.
-- Last session: 2026-09-26, M3: the `hero-glide` and `runaway` widgets, the shared widget shell, and the handover between sim modes (decisions 27 to 30).
-- Open PRs waiting on review: M3.
-- Next up: M4 (`generator`). M5 to M8 are eligible too; none of them needs M3's PR, though all of them will want its widget shell, so stacking M4 on it one deep is reasonable if it has not merged.
+- Current milestone: M4 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8.
+- Last session: 2026-09-26, M4: the `generator` widget, the EMF waveform in `generator.ts`, `GENERATOR_POLE_PAIRS` and derivation D9, and a shared slider control (decisions 31 and 32).
+- Open PRs waiting on review: M4.
+- Next up: M5 (`lenz-brake`). M6 to M8 are eligible too; none of them needs M4's PR. M5 will likely want M4's slider and scope, so stacking it on M4 one deep is reasonable if M4 has not merged.
 
 ## Open questions for the maintainer
 
@@ -86,7 +86,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M4: `generator` widget
 
-- [ ] **Rotor speed drives the EMF waveform.**
+- [x] **Rotor speed drives the EMF waveform.**
   *Needs:* M1.
   *Acceptance:* the widget done-when below.
 
@@ -148,6 +148,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M4: `generator` widget** (2026-09-26). The reader drags the glide wheel's speed from rest to 16 rev/s, and the wheel's two-pole magnet turns under the coil at exactly that speed while a scope traces the coil's EMF over the last half second, on fixed scales, so the wave grows taller and more tightly packed together as the speed rises: at 8 rev/s it peaks at 1.57 V, cycles at 8 Hz, and averages 1.00 V rectified, with a dashed line marking that mean. Readouts give speed, frequency, peak, and rectified mean with units, and Slow motion (⅛×) shows the letters N and S so each pole can be matched to the trace. `src/sim/generator.ts` gains `instantaneousEmfV`, `peakEmfV`, and `emfFrequencyHz`: a sine whose rectified mean is exactly the k_e·ω the dynamics use, so no existing number moves. PHYSICS.md gains `GENERATOR_POLE_PAIRS` (an assumption, 1) and D9. `runtime/controls.ts` gains `createSlider`, a native range input; motion blur and `formatPlayback` moved into `widgets/shared/`. An e2e test now fails if two controls on the page share an accessible name, which the first run of this widget caught. Decisions 31 and 32.
 
 - **M3: `runaway` and `hero-glide` widgets** (2026-09-26). The first two real widgets, replacing M0's placeholder. `hero-glide` sets a Spring Drive, its seconds hand geared to the regulated glide wheel in detailed mode, beside a mechanical watch stepping 8 times a second, with a 12× loupe under each that follows its hand's tip. The scale glides past one and jumps past the other, and Slow motion (⅛×) is the primary control. `runaway` starts let down. Wind spins the unbraked wheel up to 30.6 rev/s in detailed mode, drawn with motion blur rather than aliasing, while the dial's hands race faint true-time hands. Fast-forward (1 h/s, averaged mode) runs the spring down in 28.94 h, with the hands having shown 71.73 h (PHYSICS.md, D8). The sim gains `detailedFromAveraged` (a detailed run locked from its first tick), `windDetailed` and `windAveraged`, and a `windJ` ledger term that keeps the energy balance closed across a wind. `src/widgets/shared/` holds the widget shell, readout formatting, and dial geometry; `tests/widgets/mount.test.ts` runs the widget contract against every widget. PHYSICS.md gains `MECHANICAL_BEAT_HZ` (an assumption) and D8. Decisions 27 to 30.
 - **M2: Averaged mode and CLI** (2026-09-26). `src/sim/averaged.ts`: a quasi-steady mode in steps of up to 1 s. The glide wheel sits where its torques balance and the capacitor where its currents balance, in one of five regimes: regulated (solved in closed form), catching up, holding back, free, and stalled. Phase error returning to zero and a capacitor browning out are located exactly within a step, so one 10 h call equals 36,000 one-second ones. A full 72 h run-down takes well under a second. Physics tests 3 (rate: 0 s/day while regulated, because the crystal is exact; decision 26), 4 (regulation for 70.645 h, brownout at 70.848 h and 6.433 rev/s, stall at 73.725 h, and the energy ledger closes to 10⁻⁹), and 7 (the modes agree to 10⁻⁶ in speed and 0.02 s/day in rate while regulated, and to 2 × 10⁻⁴ unregulated, each gap explained and measured) pass. `npm run sim -- <scenario>` writes a CSV with units in every header for `full-wind-lock`, `runaway`, `rate-24h`, `rundown-72h`, and `shock`. CI and `npm run check` run all five. `tsx` is a new dev dependency. PHYSICS.md gains `AVERAGED_STEP_S`, derivation D7, and the run-down predictions. Decisions 23 and 24.
