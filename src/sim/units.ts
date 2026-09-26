@@ -31,3 +31,9 @@ export function wrapAngleRad(angleRad: number): number {
   const shifted = wrapped + TAU;
   return shifted < TAU ? shifted : 0;
 }
+
+/**
+ * The month in a watch's rated accuracy. Seiko's ±15 s/month is a nominal
+ * figure; 30 days is the convention for turning it into s/day.
+ */
+export const DAYS_PER_MONTH = 30;

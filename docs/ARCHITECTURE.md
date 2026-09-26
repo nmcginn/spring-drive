@@ -12,6 +12,19 @@ src/
   sim/
     tsconfig.json           Typechecks src/sim with neither the DOM lib nor Node's types.
     units.ts                Unit conversions (rev/s to rad/s, angle wrapping). Definitions, not parameters.
+    types.ts                SimParams, SimState, SimControls, the energy ledger, Scenario, Sample, Shock.
+    params.ts               Every physical constant and model choice, each with a PHYSICS.md row; DEFAULT_PARAMS.
+    mainspring.ts           Torque-curve interpolation, exact stored energy, winding with a slipping bridle.
+    train.ts                Barrel torque reflected to the glide wheel; barrel angle per rotor angle.
+    rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal.
+    generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat.
+    power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
+    quartz.ts               The 32,768 Hz divider chain and the integer-counted reference phase.
+    regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
+    detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, realignment, and runScenario.
+    metrics.ts              Lock: its definition and the time it is gained.
+    rng.ts                  Seeded Mulberry32, the sim's only randomness.
+    shocks.ts               Seeded random shock schedules.
   runtime/
     scheduler.ts            The one animation loop: shouldTick, frameDtS, createScheduler, and the browser env.
     palette.ts              Part and UI colour tokens for light and dark, paletteCss, WCAG contrast helpers.
@@ -22,7 +35,7 @@ src/
     placeholder/            M0's stand-in widget, replaced from M3 on. logic.ts is pure; index.ts mounts it.
 vite.config.ts              Build config, and the plugin that inlines the palette into index.html.
 tests/
-  sim/                      Vitest, under Node.
+  sim/                      Vitest, under Node: physics tests 1, 2, 5, 6, 8, a unit test per module, PHYSICS.md coverage.
   runtime/                  Vitest: scheduler (with fake-env.ts), palette, canvas, controls.
   widgets/                  Vitest: pure widget logic under Node, and mount/unmount under happy-dom.
   lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18).
@@ -30,7 +43,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists `sim/params.ts` and the physics modules (M1), `sim/averaged.ts` and `tools/sim-cli.ts` (M2), and the real widgets (M3 to M8). `runtime/controls.ts` has only the button helpers so far; sliders, scrubbers, and toggles arrive with the first widget that needs them.
+The target in `PLAN.md` also lists `sim/averaged.ts` and `tools/sim-cli.ts` (M2), and the real widgets (M3 to M8). Beyond the target, `sim/` has `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has only the button helpers so far; sliders, scrubbers, and toggles arrive with the first widget that needs them.
 
 ## The rule: physics, runtime, and widgets stay separate
 
