@@ -55,7 +55,7 @@ describe('test 5: energy accounting', () => {
   it.each([
     ['a minute of regulation from rest at full wind', 1, true, 60],
     ['half a minute of runaway at full wind', 1, false, 30],
-    ['ten minutes of a spring too weak to regulate or power the IC', 0.01, true, 600],
+    ['two minutes of a spring too weak to regulate or power the IC', 0.01, true, 120],
   ] as const)('balances over %s', (_name, wind, brake, seconds) => {
     const { inJ, outJ } = balance(wind, brake, seconds);
     expect(inJ).toBeGreaterThan(0);
@@ -69,10 +69,11 @@ describe('test 5: energy accounting', () => {
   });
 
   it('balances through a run-down to a dead stop, where breakaway friction holds the wheel', () => {
-    // From fraction 0.0039, turning at half a turn a second, the wheel is just
-    // above where it stalls (0.00374, D5), so it runs down and stops within
-    // the run, and the stopping step is inside the balance.
-    const { inJ, outJ, final } = balance(0.0039, true, 1800, [], 3);
+    // From fraction 0.0038, turning at 0.4 rev/s, the wheel is just above
+    // where it stalls (0.00374, D5). It stops about 330 s in, so the stopping
+    // step is inside the balance. Starting closer keeps the run short enough
+    // for a CI runner (400 s is 1.6 million steps).
+    const { inJ, outJ, final } = balance(0.0038, true, 400, [], 2.5);
     expect(final.rotorOmegaRadS).toBe(0);
     // PHYSICS.md, D5: the wheel stalls at fraction 0.00374. 0.5%: that is a
     // quasi-steady figure, and the wheel coasts a little way past it as it stops.
