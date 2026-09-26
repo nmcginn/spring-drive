@@ -4,7 +4,7 @@ Short records of choices that would otherwise get re-litigated. Add them as they
 
 A physical parameter is not a decision. It goes in `PHYSICS.md`. A decision belongs here when it is about how the model or the site is built: an integrator, a control law's update rate, a dependency, a test strategy.
 
-Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2.
+Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2. Decisions 25 and 26 answered the maintainer's open questions after M2.
 
 ---
 
@@ -135,3 +135,14 @@ Test 7 keeps the two modes honest. It starts both from the same detailed state (
 - **CI runs `npm run sim -- all`**, and so does `npm run check`, straight after the unit tests. That catches a scenario that throws before merge. The output goes to `tools/out/`, which git ignores; the runs are reproducible from the scenario name (decision 2), so there is nothing to keep.
 - **An unknown scenario exits 2** and lists the valid names with a line on each. The exit code is 2, not 1, following the usual convention for a usage error.
 
+### 25. Widget screenshots reach a PR as the CI run's `screenshots` artifact, not as committed files
+
+The maintainer's answer to the open question raised with M2. CI's `e2e` job already uploads `test-results/screenshots/` as a `screenshots` artifact on every run, whether or not the tests passed, and keeps it for 30 days. That is how widget work is reviewed. Screenshots are not committed under `docs/screenshots/` or anywhere else, so the history carries no binary churn, and what the reviewer sees is always what the test produced on that head, never a stale copy. The cost is a download per review, which the maintainer accepted. The PR description names each file in the artifact and says what it shows (`.github/pull_request_template.md`), and the nightly session still opens every screenshot itself before writing the PR.
+
+### 26. The model's crystal stays exact: no frequency offset
+
+The maintainer's answer to the open question raised with M2. The quartz runs at exactly 32,768 Hz, and there is no `QUARTZ_OFFSET_PPM` parameter, so while regulated the model's rate error is 0 s/day (PHYSICS.md, D7). A real watch crystal's cut tolerance and temperature drift are what the 9R's rated ±15 s/month mostly allows for, but no published 9R figure gives them, and an invented ppm would put an unsourced number in front of the reader.
+
+- **What the article may say.** The loop adds no rate error of its own: it holds the glide wheel to the crystal, so the watch is exactly as accurate as its crystal. The model's zero is a property of the model's perfect crystal. It must never be presented as the 9R's accuracy. Wherever a rate appears, in prose or a widget, it is framed that way, and the published ±15 s/month is attributed to the real movement, crystal and all.
+- **What widgets may show.** A rate readout (M8, if it has one) shows the model's rate, and next to it says what that rate leaves out. It does not add a crystal error of its own, as a hidden default or as a reader control. Changing either would need a new decision.
+- **Test 3 stays as it is.** It asserts 0 s/day to float rounding. That meets `PLAN.md`'s ±0.5 s/day trivially, and the test says so.
