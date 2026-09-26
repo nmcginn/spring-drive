@@ -71,6 +71,14 @@ Each row says why this value, not just what it is. The article presents every on
 | IC start voltage | `IC_START_V` | 0.75 | V | Assumption | 0.15 V above brownout. With a narrower gap the IC stops, the glide wheel speeds up without its load, and the IC restarts, over and over. At 0.7 V the model chattered for about a minute at the end of the reserve; at 0.75 V it stops once. See D5. |
 | Storage capacitance | `CAPACITANCE_F` | 0.1 × 10⁻⁶ | F | Assumption | Large enough to carry the IC through about half a second with no generation, small enough that its charging adds little inertia to the glide wheel. See D5. |
 
+### The comparison watch
+
+The intro (`hero-glide`) sets a gliding Spring Drive seconds hand beside an ordinary mechanical one. That watch is not part of the model, and nothing in `src/sim` reads its row; it is here because the reader sees its numbers.
+
+| Quantity | `params.ts` name | Value | Units | Label | Source or justification |
+|---|---|---|---|---|---|
+| Beat rate of the ticking watch | `MECHANICAL_BEAT_HZ` | 8 | beats/s | Assumption | 28,800 vibrations an hour, the commonest rate in modern mechanical movements: Seiko's own 9S65 and the ETA 2824-2 both run at it. It stands for "a typical mechanical watch", not a particular one, so it is labelled an assumption; the maintainer may prefer to name a calibre and cite it. Its seconds hand steps 6° ÷ 8 = **0.75°** a beat. That it matches the glide wheel's 8 rev/s is a coincidence the article can use or ignore. |
+
 ### Model choices
 
 Numerical choices that decide what the numbers mean. They are assumptions in the sense above, and labelled as such. The reasoning is in `docs/DECISIONS.md` (decision 6, as amended in M1, and decisions 19 and 23).
@@ -228,6 +236,15 @@ Phase error is tracked, not settled: it grows at (ω − ω₀) while the IC run
 
 **Rate.** The model's crystal is exact, so while the loop holds zero phase error the hands keep perfect time: averaged mode's rate while regulated is **0 s/day**, to float rounding. The published ±15 s/month (±0.5 s/day, D0) is met with room to spare, but for a reason the article must be careful with: what the real movement's rating allows for (the crystal's frequency tolerance and its drift with temperature, for instance) is simply not in the model, and stays out of it (decision 26).
 
+### D8. The unbraked run-down
+
+The runaway widget (M3) fast-forwards the glide wheel with the brake disabled, from full wind until it stops. Nothing new is assumed; this is what the parameters above imply, computed by averaged mode in its free regime (D7).
+
+- **Speed.** It starts at the **30.61 rev/s** of D3. As the spring weakens the balance speed falls with it: 26.8 rev/s after an hour, as the curve's steep top is used up, then a slow slide through the flat middle, 22.4 rev/s at half wind. The IC stays on until the end, its capacitor charged far above what it needs: from 3.6 V at full wind down to about 2.2 V a few hours before the end (nothing clamps it; see D5).
+- **Below 8 rev/s.** The wheel slows through 8 rev/s where the drive can no longer hold 8 rev/s against friction and the IC's charging load. That is the same balance that ends regulation in D7, so it happens at the same wind fraction, **0.018823**, at **93,100 s (25.86 h)**.
+- **Brownout and stall.** From there it follows D7's run-down: the IC browns out at 6.433 rev/s, at **93,831 s (26.06 h)**, and the wheel stalls at fraction 0.00374 (D5), at **104,186 s (28.94 h)**. That is **40%** of the published 72 h.
+- **What the hands show.** The hands are geared to the wheel, and the wheel's turns are fixed by the barrel turns spent: G × 7 turns × (1 − 0.00374) = 2,065,845 turns, whatever the speed. Read at 8 rev/s that is (1 − 0.00374) × 72 h = **71.73 h**. The unregulated watch shows nearly the full reserve's worth of time, crammed into 29 hours of real time.
+
 ## Model predictions
 
 What the parameters above imply, as asserted by the physics tests. When a parameter changes, these change, and the tests say so.
@@ -248,6 +265,11 @@ What the parameters above imply, as asserted by the physics tests. When a parame
 | Rate while regulated, 24 h from half wind | 0 s/day (exact crystal; see D7) | Test 3, `tests/sim/rate.test.ts` |
 | Averaged against detailed mode, regulated | mean speed within 10⁻⁶, rate within 0.02 s/day | Test 7, `tests/sim/agreement.test.ts` |
 | Averaged against detailed mode, unregulated | mean speed within 2 × 10⁻⁴ | Test 7 |
+| Unbraked from full wind: falls below 8 rev/s | 93,100 s (25.86 h), at fraction 0.018823 | `tests/sim/runaway.test.ts` (D8) |
+| Unbraked from full wind: IC brownout | 93,831 s (26.06 h) | `tests/sim/runaway.test.ts` (D8) |
+| Unbraked from full wind: glide wheel stops | 104,186 s (28.94 h), 40% of 72 h | `tests/sim/runaway.test.ts`, `tests/widgets/runaway-logic.test.ts` (D8) |
+| Unbraked from full wind: time the hands show when it stops | 71.73 h | `tests/sim/runaway.test.ts` (D8) |
+| Detailed mode carried on from a settled averaged state | locked from the first reference tick, at any wind | `tests/sim/handover.test.ts` |
 | Speed held back by the full brake at full wind | 1.194 rev/s | `tests/sim/averaged.test.ts` |
 | Glide wheel stalls, at the end of a run-down | at fraction 0.00374, from about 0.36 rev/s | Test 5 (the run-down case), test 4 |
 | Energy balance, detailed mode | within 1 part in 10⁵ | Test 5, `tests/sim/energy.test.ts` |
@@ -274,4 +296,4 @@ The budget closes by construction here. Averaged mode's ledger over a full run-d
 
 When a value changes after it first lands, note it here: date, PR, old and new value, and why. Amend rows in place, and keep the history here.
 
-- (none yet: every value above first landed in M1)
+- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, and changed no existing value.)

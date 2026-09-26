@@ -42,8 +42,9 @@ export const test = base.extend<Fixtures>({
 
 export { expect };
 
-export async function ticks(page: Page): Promise<number> {
-  return Number(await page.locator('.widget-placeholder').getAttribute('data-ticks'));
+/** Frames that have advanced the widget whose root matches `selector`. The shell keeps the count in `data-ticks`. */
+export async function ticks(page: Page, selector: string): Promise<number> {
+  return Number(await page.locator(selector).getAttribute('data-ticks'));
 }
 
 /** Wait for the browser to run `count` animation frames. */
@@ -53,21 +54,26 @@ export async function frames(page: Page, count: number): Promise<void> {
   }, count);
 }
 
-/** Assert the placeholder is ticking: its counter advances within a few frames. */
-export async function expectTicking(page: Page): Promise<void> {
-  const start = await ticks(page);
-  await expect.poll(() => ticks(page)).toBeGreaterThan(start + 2);
+/** Assert the widget is ticking: its counter advances within a few frames. */
+export async function expectTicking(page: Page, selector: string): Promise<void> {
+  const start = await ticks(page, selector);
+  await expect.poll(() => ticks(page, selector)).toBeGreaterThan(start + 2);
 }
 
 /**
- * Assert the placeholder is not ticking: its counter is unchanged across 20
+ * Assert the widget is not ticking: its counter is unchanged across 20
  * frames. At 60 Hz that is a third of a second, a hundred times longer than
  * the scheduler takes to react to a change.
  */
-export async function expectStill(page: Page): Promise<void> {
-  const start = await ticks(page);
+export async function expectStill(page: Page, selector: string): Promise<void> {
+  const start = await ticks(page, selector);
   await frames(page, 20);
-  expect(await ticks(page)).toBe(start);
+  expect(await ticks(page, selector)).toBe(start);
+}
+
+/** The value of the readout labelled `label` in the widget matching `selector`. */
+export function readout(page: Page, selector: string, label: string): Locator {
+  return page.locator(`${selector} .readouts dt`, { hasText: label }).locator('xpath=following-sibling::dd[1]');
 }
 
 /**

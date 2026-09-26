@@ -98,6 +98,13 @@ export interface EnergyLedger {
   icJ: number;
   /** Added to the glide wheel by shocks (negative for a shock that slows it). */
   shockJ: number;
+  /**
+   * Put into the mainspring by winding, from outside the movement. Winding
+   * also counts against `springJ`, as energy the spring took in rather than
+   * released, so the balance is springJ + windJ + shockJ = losses + the
+   * change in kinetic and capacitor energy.
+   */
+  windJ: number;
 }
 
 export interface RegulatorState {

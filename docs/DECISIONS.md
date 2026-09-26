@@ -4,7 +4,7 @@ Short records of choices that would otherwise get re-litigated. Add them as they
 
 A physical parameter is not a decision. It goes in `PHYSICS.md`. A decision belongs here when it is about how the model or the site is built: an integrator, a control law's update rate, a dependency, a test strategy.
 
-Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2. Decisions 25 and 26 answered the maintainer's open questions after M2.
+Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2. Decisions 25 and 26 answered the maintainer's open questions after M2. Decisions 27 to 30 came with M3.
 
 ---
 
@@ -146,3 +146,33 @@ The maintainer's answer to the open question raised with M2. The quartz runs at 
 - **What the article may say.** The loop adds no rate error of its own: it holds the glide wheel to the crystal, so the watch is exactly as accurate as its crystal. The model's zero is a property of the model's perfect crystal. It must never be presented as the 9R's accuracy. Wherever a rate appears, in prose or a widget, it is framed that way, and the published ±15 s/month is attributed to the real movement, crystal and all.
 - **What widgets may show.** A rate readout (M8, if it has one) shows the model's rate, and next to it says what that rate leaves out. It does not add a crystal error of its own, as a hidden default or as a reader control. Changing either would need a new decision.
 - **Test 3 stays as it is.** It asserts 0 s/day to float rounding. That meets `PLAN.md`'s ±0.5 s/day trivially, and the test says so.
+
+### 27. Widgets share a shell, and keep everything but drawing in a pure `logic.ts`
+
+Every widget has the same frame: a HiDPI canvas, a list of readouts, a row of controls led by the reduced-motion Play button, and a scheduler registration that ticks it, redraws it on a resize or a colour-scheme change, and lets go of all of it on unmount. `src/widgets/shared/shell.ts` builds that once. A widget passes in how to advance its state, how to draw it, and what its readouts say, and adds its own controls. The shell also keeps the tick count in `data-ticks`, which is how the Playwright tests prove a widget has stopped, the way the M0 placeholder did.
+
+Each widget is two files: `logic.ts`, which is pure (state, transitions, readouts, layout, and drawing geometry) and tested under Node, and `index.ts`, which mounts it and draws. What the widgets share that is not drawing lives beside the shell: `format.ts` (units on readouts, one rule each) and `dial.ts` (hand angles and dial geometry). `tests/widgets/mount.test.ts` runs the whole widget contract (visibility, pause, reduced motion, a huge frame gap, unmount then remount) against every widget from one table, so a new widget gets the checks by adding a row.
+
+The M0 placeholder is gone. Its end-to-end tests of the runtime (offscreen pausing, global pause, reduced motion, remounting, the canvas backing store) now run against both real widgets.
+
+A toggle, `createToggle` in `runtime/controls.ts`, is a button whose label names a mode and whose state is in `aria-pressed`. The Play button stays as it was, a button whose label names its action.
+
+### 28. The runaway widget runs detailed mode in real time and averaged mode in fast-forward
+
+The runaway needs two timescales. The spin-up after winding takes a few seconds and is the dramatic part, so real time runs detailed mode, which resolves it. The run-down takes 29 hours, so fast-forward runs averaged mode at an hour of sim time per second of page time (`FAST_FORWARD_RATE`, a display rate). The whole run-down then takes half a minute to watch, and costs about 60 averaged steps a frame, roughly 0.5 ms, inside the 4 ms budget (decision 23 measured the step). Switching modes hands the state across: `averagedFromDetailed` and `settle` going in, and the new `detailedFromAveraged` coming out. Time is rounded to a detailed step, and nothing else changes.
+
+- **Motion blur, not a sharp wheel.** At 30 rev/s and 60 frames a second a wheel turns half a revolution between frames. Drawn sharp, it would appear to turn slowly or backwards (the wagon-wheel effect), which would tell the reader the opposite of the truth. The wheel is drawn smeared over the angle it swept in the frame, capped at one spoke spacing, where the pattern repeats. A static frame (reduced motion, or before the first tick) is sharp.
+- **The hands are geared to the wheel, and faint hands show true time.** Winding sets both to 12:00, so their gap is what the runaway has gained. In fast-forward the seconds hands are hidden: at an hour a second they would turn 60 times a second, which no frame rate can show.
+- **It starts let down.** Nothing moves until the reader presses Wind, which is the widget's primary control and the action the section is about.
+
+### 29. The intro's Spring Drive opens already regulated, and its mechanical watch is not simulated
+
+`hero-glide` shows a Spring Drive and a ticking mechanical watch side by side. The Spring Drive's seconds hand is geared to the glide wheel in detailed mode, regulated. It starts from averaged mode's regulated point at full wind, carried into detailed mode by `detailedFromAveraged`. That sets the controller's integral to the steady duty, so the wheel is locked from the first reference tick (`tests/sim/handover.test.ts`), and the page's first widget never shows a 3.75 s lock transient that the article has not explained yet.
+
+The mechanical watch is not simulated. A watch with a perfect escapement shows true time floored to its last beat, and that is all the comparison needs. Its beat rate, `MECHANICAL_BEAT_HZ`, is in `params.ts` and PHYSICS.md all the same, because the reader sees it.
+
+A 0.75° step is under a pixel at the tip of a phone-sized dial's seconds hand, so each dial has a loupe at 12× that follows its own hand's tip. The hand stays at the loupe's centre and the dial's scale, marked in seconds and eighths of a second, moves past it: smoothly under the Spring Drive, in visible jumps under the mechanical watch. The primary control is Slow motion, at an eighth of real time, where the mechanical watch steps once a second.
+
+### 30. Winding is booked in the energy ledger as work from outside
+
+Both widgets wind the spring, and the ledger's promise (decision 22) is that every flow is booked from its own formula. `windDetailed` and `windAveraged` book the work of winding as a new ledger term, `windJ`, and count it against `springJ`, since the spring took energy in rather than released it. The balance becomes springJ + windJ + shockJ = losses + the change in kinetic and capacitor energy, and test 5's formula adds `windJ` (zero in every existing test). The first version booked only the negative `springJ`, and a test that wound mid-run caught the balance failing by the energy wound in. That is what this term fixes.
