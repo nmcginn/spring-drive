@@ -73,11 +73,12 @@ Each row says why this value, not just what it is. The article presents every on
 
 ### Model choices
 
-Numerical choices that decide what the numbers mean. They are assumptions in the sense above, and labelled as such. The reasoning is in `docs/DECISIONS.md` (decision 6, as amended in M1, and decision 19).
+Numerical choices that decide what the numbers mean. They are assumptions in the sense above, and labelled as such. The reasoning is in `docs/DECISIONS.md` (decision 6, as amended in M1, and decisions 19 and 23).
 
 | Quantity | `params.ts` name | Value | Units | Label | Source or justification |
 |---|---|---|---|---|---|
 | Detailed timestep | `DETAILED_STEP_S` | 0.000244140625 | s | Assumption | 2⁻¹² s, 4,096 steps a second, inside PLAN.md's 2 to 4 kHz. Exactly 8 crystal cycles a step, and 512 steps a reference tick, so ticks land on steps. The fastest dynamics, the capacitor's RC of 10 ms, is 41 steps. Decision 19. |
+| Averaged step | `AVERAGED_STEP_S` | 1 | s | Assumption | The longest step averaged mode takes. Every regime change inside a step is located exactly (D7), so the step only sets how finely the spring's unwinding is followed. At 8 rev/s a second unwinds 50.27 ÷ 296,228.6 = 1.7 × 10⁻⁴ rad of barrel, 3.9 × 10⁻⁶ of full wind. That changes the drive by 1.3 parts in 10⁵ on the curve's steep top and 2 parts in 10⁴ low on the curve, where regulation ends, and each step uses the mean drive over its own angle, so what is left is second order. Decision 23. |
 | Regulator phase gain | `REGULATOR_KP_PER_RAD` | 0.02 | 1/rad | Assumption | Tuned, with the two below, for the fastest worst-case lock and shock recovery across full, mid, and low wind. The optimum is broad, so round numbers from its middle. See D6. |
 | Regulator integral gain | `REGULATOR_KI_PER_RAD_S` | 0.02 | 1/(rad·s) | Assumption | As above. Removes the steady phase offset, so the loop holds zero phase error at any wind. See D6. |
 | Regulator speed gain | `REGULATOR_KD_PER_RAD_S` | 0.004 | s/rad | Assumption | As above. Damps the loop, which PI alone leaves ringing at low wind. See D6. |
@@ -180,7 +181,7 @@ The largest excess the brake must absorb is at full wind: 3.241 × 10⁻⁸ − 
 
 **Operating point at 8 rev/s.** The IC draws P ÷ V. The capacitor settles where the charging current, which flows only for the (1 − d) of the time the coil is not shorted, equals that draw: V = e − V_d − R × (P ÷ V) ÷ (1 − d) = 1.0 − 0.2 − 100,000 × (25 × 10⁻⁹ ÷ 0.7965) ÷ 0.888 = **0.7965 V**. The IC current is 25 × 10⁻⁹ ÷ 0.7965 = 31.4 nA, and it loads the wheel with k_e × 31.4 nA = **6.24 × 10⁻¹⁰ N·m**. Charging takes 1.0 V × 31.4 nA = 31.4 nW from the wheel, of which the IC gets 25 nW, the rectifier 6.3 nW, and the coil 0.1 nW.
 
-**Brownout.** The capacitor can only reach e − V_d, so the IC stops once k_e × ω − 0.2 < 0.6, below ω = 0.8 ÷ 0.019894 = 40.2 rad/s = **6.4 rev/s** in the steady state. (In a run-down the capacitor lags the falling EMF slightly, and the model browns out at about 6.7 rev/s.)
+**Brownout.** The capacitor can only reach e − V_d, so the IC stops once k_e × ω − 0.2 < 0.6, below ω = 0.8 ÷ 0.019894 = 40.2 rad/s = **6.4 rev/s** in the steady state. More exactly, with the IC's own draw through the coil, the capacitor settles at 0.6 V when e − V_d = 0.6 + R × P ÷ 0.6 = 0.6 + 0.0025 ÷ 0.6 = 0.60417 V, so at e = 0.80417 V, which is ω = 0.80417 × 50.2655 = 40.42 rad/s = **6.433 rev/s** (1 V of EMF is 8 rev/s, so this is just 0.80417 × 8). That is where averaged mode browns out (D7). (Detailed mode's capacitor lags the falling EMF slightly, and M1 measured its brownout nearer 6.7 rev/s.)
 
 **Restart.** Needs k_e × ω − 0.2 ≥ 0.75, so ω ≥ 47.8 rad/s = **7.6 rev/s**: the IC only comes back when the spring can nearly hold target speed again. See the start-voltage row for why the gap matters.
 
@@ -205,6 +206,28 @@ When the IC starts, its counters start from zero, so the reference is aligned to
 
 **Lock** is defined as: the IC running, mean speed over the last reference period within 0.1% of 8 rev/s, and phase error within a hundredth of a turn, held from then to the end of the run.
 
+### D7. Averaged mode
+
+Averaged mode (decision 23) takes steps of 1 s and treats everything detailed mode resolves inside a second as settled: the glide wheel's speed (mechanical time constant 0.625 s, D3), the capacitor (RC = 10 ms, D5), and lock (about 4 s, D6). So in each step the wheel turns at the speed where its torques balance, and the capacitor sits where its currents balance. Which balance holds is the regime:
+
+| Regime | When | Speed | Capacitor |
+|---|---|---|---|
+| Regulated | IC on, brake enabled, on the reference, spring strong enough | 8 rev/s exactly | Upper root of c·V² − (c·a − g)·V + (R·P − g·a) = 0, where a = e − V_d, B = k_e²ω₀/R, c = 1 − excess/B, g = k_e·P/B. Duty then follows from the torque balance. |
+| Catching up | IC on, brake enabled, behind the reference | Drive = friction + IC charging load, above 8 rev/s | Upper root of V² − a·V + R·P = 0 |
+| Holding back | IC on, brake enabled, ahead of the reference | Drive = friction + full brake, k_e²ω/R | Drains at the IC's constant power, with nothing charging it |
+| Free | Brake disabled, IC off, or spring too weak for 8 rev/s | Drive = friction (+ charging load if the IC is on) | As catching up with the IC on; with it off, charged to e − V_d and held |
+| Stalled | Drive below the friction minimum (D3), or below breakaway for a wheel at rest | 0 | Drains, if the IC is on, as holding back |
+
+Check of the regulated quadratic at half wind, with the numbers from D2 to D5: B = 1.989 × 10⁻⁷ N·m, excess = 2.431 × 10⁻⁸ − 9.542 × 10⁻⁹ = 1.477 × 10⁻⁸ N·m, so c = 0.92575, g = 0.0025, a = 0.8 V. Then c·a − g = 0.7381, R·P − g·a = 0.0005, and V = (0.7381 + √(0.7381² − 4 × 0.92575 × 0.0005)) ÷ (2 × 0.92575) = **0.7966 V**, with duty (1.477 × 10⁻⁸ − 0.019894 × 25 × 10⁻⁹ ÷ 0.7966) ÷ 1.989 × 10⁻⁷ = **0.071**, as in D4.
+
+Phase error is tracked, not settled: it grows at (ω − ω₀) while the IC runs off the reference. The moment a catch-up or hold-back brings it back to zero, and the moment a draining capacitor reaches 0.6 V (after ½C(V² − V_b²) ÷ P seconds), are solved for exactly, and the step is split there. A power-on realigns the reference to the wheel, as in detailed mode (decision 19).
+
+**Where it differs from detailed mode.** It has no spin-up or lock transient: a movement let go at full wind is regulated from t = 0. It trails nothing: unregulated, detailed mode's speed lags the balance speed by (J/b) × |dω/dt| as the spring weakens, which on the curve's steep bottom is 1.6 × 10⁻⁴ of the speed. It does not model shocks, which last milliseconds. And it has no capacitor lag at brownout, so it browns out at the quasi-steady 6.433 rev/s. Test 7 measures the first two against detailed mode.
+
+**The run-down, in averaged mode.** From full wind, regulation holds until the drive falls to friction plus the IC's charging load at 8 rev/s. At the end of regulation the duty is zero, so the capacitor is at the upper root of V² − 0.8·V + 0.0025 = 0, 0.79686 V, and the charging load is 0.019894 × 25 × 10⁻⁹ ÷ 0.79686 = 6.2415 × 10⁻¹⁰ N·m. The threshold is (9.5425 × 10⁻⁹ + 6.2415 × 10⁻¹⁰) × 493,714.3 = 5.0194 × 10⁻³ N·m of barrel torque, at fraction 0.03 × 5.0194 ÷ 8 = 0.018823 (D5's figure, one more digit). Regulated, the barrel unwinds at a constant rate, so that is (1 − 0.018823) × 259,200 s = **254,321 s = 70.645 h**. After it the wheel slows, and the IC browns out once the drive can no longer hold 6.433 rev/s against friction and the IC's load at 0.6 V: (1.5 × 10⁻⁹ + 1.6 × 10⁻¹⁰ × 40.42 + 0.019894 × 25 × 10⁻⁹ ÷ 0.6) × 493,714.3 = 4.3430 × 10⁻³ N·m, fraction 0.016286. Without the IC's load the wheel speeds up a little, to 7.26 rev/s, too slow for the 7.6 rev/s restart (D5), and runs on until it stalls at fraction 0.00374 (D5). How long each of those stretches takes depends on the slowing speed, so those times come from integrating it: averaged mode puts the brownout at **255,053 s (70.848 h)** and the stall at **265,409 s (73.725 h)**.
+
+**Rate.** The model's crystal is exact, so while the loop holds zero phase error the hands keep perfect time: averaged mode's rate while regulated is **0 s/day**, to float rounding. The published ±15 s/month (±0.5 s/day, D0) is met with room to spare, but for a reason the article must be careful with: what the real movement's rating allows for (the crystal's frequency tolerance and its drift with temperature, for instance) is simply not in the model.
+
 ## Model predictions
 
 What the parameters above imply, as asserted by the physics tests. When a parameter changes, these change, and the tests say so.
@@ -219,8 +242,14 @@ What the parameters above imply, as asserted by the physics tests. When a parame
 | Steady brake duty at full, mid, low wind | 0.112, 0.071, 0.030 | Test 2 |
 | Steady capacitor voltage at 8 rev/s | 0.7965 V | Test 2 |
 | Relock after a ±2 rev/s shock, any wind | within 3.0 s | Test 6, `tests/sim/disturbance.test.ts` |
-| Regulated reserve from full wind | 70.6 h | Test 4 (M2) |
-| Glide wheel stalls, at the end of a run-down | at fraction 0.00374, from about 0.36 rev/s | Test 5 (the run-down case) |
+| Regulated reserve from full wind | 70.645 h (254,321 s) | Test 4, `tests/sim/rundown.test.ts` |
+| IC brownout at the end of a run-down, averaged mode | 70.848 h (255,053 s), at 6.433 rev/s | Test 4 |
+| Glide wheel stops, at the end of a run-down, averaged mode | 73.725 h (265,409 s) | Test 4 |
+| Rate while regulated, 24 h from half wind | 0 s/day (exact crystal; see D7) | Test 3, `tests/sim/rate.test.ts` |
+| Averaged against detailed mode, regulated | mean speed within 10⁻⁶, rate within 0.02 s/day | Test 7, `tests/sim/agreement.test.ts` |
+| Averaged against detailed mode, unregulated | mean speed within 2 × 10⁻⁴ | Test 7 |
+| Speed held back by the full brake at full wind | 1.194 rev/s | `tests/sim/averaged.test.ts` |
+| Glide wheel stalls, at the end of a run-down | at fraction 0.00374, from about 0.36 rev/s | Test 5 (the run-down case), test 4 |
 | Energy balance, detailed mode | within 1 part in 10⁵ | Test 5, `tests/sim/energy.test.ts` |
 
 Lock times are multiples of 0.125 s because lock is judged once per reference period.
@@ -239,7 +268,7 @@ The check from `PLAN.md`: mainspring energy ≈ ∫ (friction + brake + IC) dt o
 | Rectifier and coil, while charging | (31.4 − 25) nW × 254,321 s | 0.0016 | 0.3% |
 | Brake (coil heat while shorted) | what the wheel receives, 0.3084 J, less the three above | 0.1785 | 34.6% |
 
-The budget closes by construction here. What test 5 checks is that the simulation's own ledger, where every term comes from its own formula at every step, closes too: over a minute of regulation, a runaway, random shocks, and a run-down to a stop, spring energy plus shock energy equals the sum of the losses plus the change in kinetic and capacitor energy to within 1 part in 10⁵.
+The budget closes by construction here. Averaged mode's ledger over a full run-down (test 4) reproduces it to within 0.0015 J, the difference being the 3 h of unregulated running after the 70.6 h this table covers, and closes on its own to 1 part in 10⁹. What test 5 checks is that the simulation's own ledger, where every term comes from its own formula at every step, closes too: over a minute of regulation, a runaway, random shocks, and a run-down to a stop, spring energy plus shock energy equals the sum of the losses plus the change in kinetic and capacitor energy to within 1 part in 10⁵.
 
 ## Change log
 

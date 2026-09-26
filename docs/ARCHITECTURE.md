@@ -16,13 +16,14 @@ src/
     params.ts               Every physical constant and model choice, each with a PHYSICS.md row; DEFAULT_PARAMS.
     mainspring.ts           Torque-curve interpolation, exact stored energy, winding with a slipping bridle.
     train.ts                Barrel torque reflected to the glide wheel; barrel angle per rotor angle.
-    rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal.
+    rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal; the friction minimum.
     generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat.
     power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
     quartz.ts               The 32,768 Hz divider chain and the integer-counted reference phase.
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
     detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, realignment, and runScenario.
-    metrics.ts              Lock: its definition and the time it is gained.
+    averaged.ts             Quasi-steady mode for hours and days: five regimes, exact event times, runAveragedScenario.
+    metrics.ts              Lock: its definition and the time it is gained. Rate error in s/day.
     rng.ts                  Seeded Mulberry32, the sim's only randomness.
     shocks.ts               Seeded random shock schedules.
   runtime/
@@ -33,9 +34,15 @@ src/
   widgets/
     registry.ts             Widget IDs mapped to lazy imports.
     placeholder/            M0's stand-in widget, replaced from M3 on. logic.ts is pure; index.ts mounts it.
+tools/
+  sim-cli.ts                `npm run sim -- <scenario>… | all [--out <dir>]`: main(argv, io) returns the exit code.
+  scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
+  csv.ts                    Samples to CSV, every column named with its unit.
+  out/                      Where the CSVs go. Git ignores it.
 vite.config.ts              Build config, and the plugin that inlines the palette into index.html.
 tests/
-  sim/                      Vitest, under Node: physics tests 1, 2, 5, 6, 8, a unit test per module, PHYSICS.md coverage.
+  sim/                      Vitest, under Node: all eight physics tests from PLAN.md, a unit test per module, PHYSICS.md coverage.
+  tools/                    Vitest: the CSV format and the CLI's contract.
   runtime/                  Vitest: scheduler (with fake-env.ts), palette, canvas, controls.
   widgets/                  Vitest: pure widget logic under Node, and mount/unmount under happy-dom.
   lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18).
@@ -43,7 +50,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists `sim/averaged.ts` and `tools/sim-cli.ts` (M2), and the real widgets (M3 to M8). Beyond the target, `sim/` has `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has only the button helpers so far; sliders, scrubbers, and toggles arrive with the first widget that needs them.
+The target in `PLAN.md` also lists the real widgets (M3 to M8). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has only the button helpers so far; sliders, scrubbers, and toggles arrive with the first widget that needs them.
 
 ## The rule: physics, runtime, and widgets stay separate
 
@@ -74,6 +81,7 @@ Controls change params or inject events, such as a shock or a wind, between step
 | Layer | Tool | What it proves |
 |---|---|---|
 | `src/sim` | Vitest, under Node | The required physics tests from `PLAN.md`, determinism, and PHYSICS.md coverage |
+| `tools` | Vitest, and `npm run sim -- all` in CI | The CLI's exit codes and output, CSV headers with units; every scenario runs |
 | Widget logic | Vitest | Geometry, readout formatting, control mapping |
 | Runtime | Vitest | The tick decision (pause, visibility, reduced motion) as a pure function |
 | Widgets in a page | Playwright | Mount, primary control, no console errors, no off-origin requests, screenshots at 380 px and desktop |

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { breakawayTorqueNm, frictionTorqueNm, nextOmegaRadS, rotorKineticEnergyJ } from '../../src/sim/rotor.ts';
+import {
+  breakawayTorqueNm,
+  frictionMinimumOmegaRadS,
+  frictionTorqueNm,
+  nextOmegaRadS,
+  rotorKineticEnergyJ,
+} from '../../src/sim/rotor.ts';
 import { P } from './helpers.ts';
 
 const DT = P.stepS;
@@ -44,5 +50,19 @@ describe('the glide wheel', () => {
 
   it('carries ½Jω² of kinetic energy', () => {
     expect(rotorKineticEnergyJ(10, P)).toBeCloseTo(0.5 * P.rotorInertiaKgM2 * 100, 20);
+  });
+
+  it('has its least running friction at the 2.24 rad/s PHYSICS.md derives, 2.02 × 10⁻⁹ N·m (D3)', () => {
+    const omega = frictionMinimumOmegaRadS(P);
+    // Half a unit in the last digit PHYSICS.md shows.
+    expect(Math.abs(omega - 2.24)).toBeLessThan(0.005);
+    expect(Math.abs(frictionTorqueNm(omega, P) - 2.02e-9)).toBeLessThan(0.005e-9);
+    // A minimum: friction is higher either side of it.
+    expect(frictionTorqueNm(omega * 0.9, P)).toBeGreaterThan(frictionTorqueNm(omega, P));
+    expect(frictionTorqueNm(omega * 1.1, P)).toBeGreaterThan(frictionTorqueNm(omega, P));
+  });
+
+  it('has no dip at all when breakaway friction barely exceeds Coulomb friction', () => {
+    expect(frictionMinimumOmegaRadS({ ...P, frictionStaticNm: P.frictionCoulombNm })).toBe(0);
   });
 });

@@ -4,6 +4,7 @@
 
 import { LOCK_PHASE_TOLERANCE_RAD, LOCK_SPEED_TOLERANCE } from './params.ts';
 import type { Sample, SimParams } from './types.ts';
+import { SECONDS_PER_DAY } from './units.ts';
 
 /** Mean glide wheel speed between two samples, rad/s. */
 export function meanOmegaRadS(from: Sample, to: Sample): number {
@@ -40,4 +41,16 @@ export function lockTimeS(samples: readonly Sample[], params: SimParams, afterS 
     from = to;
   }
   return lockedSince;
+}
+
+/**
+ * The watch's rate between two samples, s/day: how much the time the hands
+ * show gained (positive) or lost against true time, per day. The hands are
+ * geared to the glide wheel, so they show the time the wheel has turned
+ * through at the target speed.
+ */
+export function rateErrorSPerDay(from: Sample, to: Sample, params: SimParams): number {
+  const elapsedS = to.timeS - from.timeS;
+  const shownS = (to.rotorAngleRad - from.rotorAngleRad) / params.rotorTargetOmegaRadS;
+  return ((shownS - elapsedS) / elapsedS) * SECONDS_PER_DAY;
 }

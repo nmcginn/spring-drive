@@ -69,7 +69,7 @@ npm run sim -- <scenario>   # Headless sim, writes CSV to tools/out/
 npm run check       # Everything CI runs, fastest first. Run before pushing.
 ```
 
-Required before every PR: `npm run check`. It covers `typecheck`, `lint`, `format:check`, `test`, `build`, and `test:e2e`. The scripts arrive with M0 and `sim` with M2. Until then, `package.json` does not exist.
+Required before every PR: `npm run check`. It covers `typecheck`, `lint`, `format:check`, `test`, every sim scenario (`sim -- all`), `build`, and `test:e2e`.
 
 In a cloud session, Chromium is preinstalled. Do not run `npx playwright install`. The session-start hook exports `PLAYWRIGHT_CHROMIUM_PATH`, and the Playwright config uses it (decision 11).
 

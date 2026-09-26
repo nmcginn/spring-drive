@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLocked, lockTimeS, meanOmegaRadS } from '../../src/sim/metrics.ts';
+import { isLocked, lockTimeS, meanOmegaRadS, rateErrorSPerDay } from '../../src/sim/metrics.ts';
 import type { Sample } from '../../src/sim/types.ts';
 import { P } from './helpers.ts';
 
@@ -49,5 +49,19 @@ describe('lock', () => {
   it('only looks after the given time', () => {
     const s = [sample(0), sample(T), sample(2 * T), sample(3 * T)];
     expect(lockTimeS(s, P, 2 * T)).toBe(3 * T);
+  });
+});
+
+describe('rate error', () => {
+  it('is zero for a wheel at exactly the target speed', () => {
+    // 10⁻⁹ s/day: float rounding in an angle of 4.3 × 10⁶ rad.
+    expect(Math.abs(rateErrorSPerDay(sample(0), sample(86_400), P))).toBeLessThan(1e-9);
+  });
+
+  it('counts a wheel 1 part in 86,400 fast as gaining a second a day, and slow as losing one', () => {
+    const fast = 1 + 1 / 86_400;
+    expect(rateErrorSPerDay(sample(0, 0, true, fast), sample(3600, 0, true, fast), P)).toBeCloseTo(1, 9);
+    const slow = 1 - 1 / 86_400;
+    expect(rateErrorSPerDay(sample(0, 0, true, slow), sample(3600, 0, true, slow), P)).toBeCloseTo(-1, 9);
   });
 });

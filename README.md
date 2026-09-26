@@ -12,7 +12,7 @@ npm run dev      # http://localhost:5173
 npm run check    # everything CI runs
 ```
 
-Node 22 (`.nvmrc`). `npm run sim -- <scenario>` arrives with M2. See `CLAUDE.md` for the full command list.
+Node 22 (`.nvmrc`). `npm run sim -- <scenario>` runs a headless scenario and writes a CSV to `tools/out/`; `npm run sim` alone lists the scenarios. See `CLAUDE.md` for the full command list.
 
 | File | What it is |
 |---|---|

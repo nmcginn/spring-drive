@@ -4,7 +4,7 @@ Short records of choices that would otherwise get re-litigated. Add them as they
 
 A physical parameter is not a decision. It goes in `PHYSICS.md`. A decision belongs here when it is about how the model or the site is built: an integrator, a control law's update rate, a dependency, a test strategy.
 
-Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1.
+Decisions 1 to 9 record choices `PLAN.md` and `CLAUDE.md` made before any code existed. Decisions 10 and 11 came with the nightly-loop setup. Decisions 12 to 18 came with M0. Decisions 19 to 22, and an amendment to 6, came with M1. Decisions 23 and 24 came with M2.
 
 ---
 
@@ -111,3 +111,27 @@ The coil's EMF is AC, and the brake switch chops far faster than the wheel's spe
 ### 22. Energy is booked term by term, not as a remainder
 
 Test 5 would prove nothing if one ledger term were computed as whatever balances the rest. Every flow is booked from its own formula as it happens: spring energy from the exact area under the torque curve; train loss as its efficiency share; friction as torque times angle; coil and rectifier heat from I²R and the drop; the IC as power times time; and shocks as their change in kinetic energy. Kinetic and capacitor energy are state, not ledger. The residue, of order dt·Δω per step, comes from booking mechanical terms at each step's mean speed and electrical ones at its start. It measures under 3 parts in 10⁶, and the test allows 1 in 10⁵.
+
+### 23. Averaged mode is quasi-steady, with its events located exactly
+
+`PLAN.md` asks for a quasi-steady model, per rotation or per second, for hours to days. `src/sim/averaged.ts` takes steps of at most 1 s (`AVERAGED_STEP_S`), and in each one puts the glide wheel at the speed where its torques balance and the capacitor where its currents balance. Everything it skips settles within a second or a few: the wheel's mechanical time constant is 0.625 s, the capacitor's RC is 10 ms, and a lock takes about 4 s. The alternatives were a per-rotation model, which is the same thing at an eighth of a second and eight times the cost, and detailed mode with a coarser step, whose explicit capacitor update goes unstable past a step of twice its 10 ms RC, long before it is cheap.
+
+- **Five regimes, not one formula.** Regulated, catching up, holding back, free, and stalled (PHYSICS.md, D7). The regulated point is solved in closed form, as a quadratic in the capacitor voltage. The others need a speed, and bisection finds it, bracketed below by the friction minimum or the slowest speed the IC survives, and above by (drive − τ_c)/b.
+- **Thresholds are solved for, not stepped over.** Phase error returning to zero, and a draining capacitor reaching brownout, happen at times that are solved for exactly, and the step is split there. The step size therefore sets only how finely the spring's unwinding is followed, not where events fall. One 10 h call and 36,000 one-second calls give identical physics, which is what a widget with time acceleration and a tab returning from the background both need.
+- **Holding back is modelled, not assumed away.** A wheel far ahead of the reference, as after the brake is re-enabled following a runaway, is braked at full duty while the IC runs off the capacitor, until it falls back or the capacitor browns out. That is what detailed mode does (the 25 s hold-back and relock that `tests/sim/averaged.test.ts` compares against it), so averaged mode needs no special realignment rule.
+- **Predictor-corrector on the drive.** Each step finds its operating point twice: once at the drive at the step's start, then again at the mean drive over the angle the first estimate turns through, which is the exact spring energy released per radian. The ledger then closes to 1 part in 10⁹ over a full run-down, where the start-of-step torque alone leaves 1.3 parts in 10⁶ (measured).
+- **The ledger books steady flows only.** Kinetic energy and the capacitor's charge change in jumps between regimes. Those jumps are transients, which averaged mode does not resolve, so no ledger term books them, and the energy balance in test 4 compares the spring against the losses alone. The largest such jump, a runaway wheel's ½Jω², is 2 × 10⁻⁶ J against the spring's 0.52 J.
+- **No shocks.** A shock lasts milliseconds, and its effect a few seconds. Averaged mode takes none, and `AveragedScenario` has no field for them. A widget that shows a shock uses detailed mode.
+- **Cost.** A few microseconds a step under Node on the build container (3 to 9 µs, depending on the regime and on JIT warm-up), so a 72 h run-down takes well under a second. At that rate, the 4 ms frame budget allows about 1,000 steps a frame, or about 17 h of sim time per second of real time at 60 frames a second. M8 decides how fast its time acceleration goes, knowing that ceiling.
+
+Test 7 keeps the two modes honest. It starts both from the same detailed state (`averagedFromDetailed`) and measures their difference over shared windows. It also checks that each difference is the one this decision predicts: the leftover phase error when regulated, and the quasi-steady lag when not.
+
+### 24. The scenario CLI: tsx, CSVs with units in the headers, and CI runs every scenario
+
+`npm run sim -- <scenario>` runs `tools/sim-cli.ts` with `tsx`, a dev dependency, which is the standard way to run TypeScript under Node without a build step. Node's own type stripping would also run this code, but it is on by default only in recent 22.x releases, and `package.json` allows any Node from 22.12. The scenarios are defined in `tools/scenarios.ts` and the CSV format in `tools/csv.ts`. Both are plain modules, tested in Vitest without spawning a process. The CLI itself is a `main(argv, io)` that returns its exit code, so its error paths are tested directly, plus one spawn of `npm run sim` to prove the wiring.
+
+- **Units in every header.** Each column name ends in its unit: `_s`, `_rad`, `_rad_s`, `_rev_s`, `_V`, and, for dimensionless columns, `_fraction` (0 to 1) or `_flag` (0 or 1). A test enforces it. Numbers are written in full (`String(n)`), so a CSV reads back to the bit and a diff between two runs means the physics changed.
+- **`hand_error_s`** is what the hands show minus true time: the glide wheel's angle read at 8 rev/s, against the clock. It is the rate, integrated, and the column a reader wants from `rate-24h`.
+- **CI runs `npm run sim -- all`**, and so does `npm run check`, straight after the unit tests. That catches a scenario that throws before merge. The output goes to `tools/out/`, which git ignores; the runs are reproducible from the scenario name (decision 2), so there is nothing to keep.
+- **An unknown scenario exits 2** and lists the valid names with a line on each. The exit code is 2, not 1, following the usual convention for a usage error.
+

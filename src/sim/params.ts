@@ -68,6 +68,12 @@ export const CAPACITANCE_F = 1e-7;
 
 /** 2⁻¹² s: 4,096 steps per second, 8 crystal cycles per step, 512 per reference tick. */
 export const DETAILED_STEP_S = 1 / 4096;
+/**
+ * Averaged mode's longest step, s. Regime changes inside a step (catching up
+ * to the reference, a brownout) are located exactly, so this only sets how
+ * finely the slow unwinding of the spring is followed.
+ */
+export const AVERAGED_STEP_S = 1;
 export const REGULATOR_KP_PER_RAD = 0.02;
 export const REGULATOR_KI_PER_RAD_S = 0.02;
 export const REGULATOR_KD_PER_RAD_S = 0.004;
@@ -104,4 +110,5 @@ export const DEFAULT_PARAMS: SimParams = Object.freeze({
   regulatorKiPerRadS: REGULATOR_KI_PER_RAD_S,
   regulatorKdPerRadS: REGULATOR_KD_PER_RAD_S,
   stepS: DETAILED_STEP_S,
+  averagedStepS: AVERAGED_STEP_S,
 });

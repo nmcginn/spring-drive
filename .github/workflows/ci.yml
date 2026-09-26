@@ -42,6 +42,11 @@ jobs:
       - name: Unit and physics tests
         run: npm test
 
+      # Every headless scenario, so one that throws is caught here rather than
+      # the first time someone runs it. Writes to tools/out/, which is discarded.
+      - name: Run every sim scenario
+        run: npm run sim -- all
+
       - name: Build
         run: npm run build
 
