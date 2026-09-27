@@ -32,17 +32,17 @@ describe('the coil as a brake', () => {
     expect(coastCoilCurrentA(W0, 0, P)).toBe(0);
   });
 
-  it('brakes with 198.9 nN·m and carries 10 µA when shorted all the time at 8 rev/s (D4, D10)', () => {
-    // k_e²·ω/R = (1.0 V)² ÷ (100 kΩ × 50.2655 rad/s); e/R = 1.0 V ÷ 100 kΩ.
+  it('brakes with 198.9 nN·m and carries a mean 8.106 µA when shorted all the time at 8 rev/s (D4, D10)', () => {
+    // (π²/8)·k_e²·ω/R = 1.2337 × (1.0 V)² ÷ (123.37 kΩ × 50.2655 rad/s); e/R = 1.0 V ÷ 123.37 kΩ.
     expect(coastBrakeTorqueNm(W0, 1, P)).toBeCloseTo(1.9894e-7, 11);
-    expect(coastCoilCurrentA(W0, 1, P)).toBeCloseTo(1e-5, 15);
+    expect(coastCoilCurrentA(W0, 1, P)).toBeCloseTo(8.1057e-6, 10);
   });
 
   it('brakes, and carries current, in proportion to the time shorted and to the speed', () => {
     const full = coastBrakeTorqueNm(W0, 1, P);
     for (const d of [0.1, 0.25, 0.5, 0.75]) {
       expect(coastBrakeTorqueNm(W0, d, P)).toBeCloseTo(d * full, 18);
-      expect(coastCoilCurrentA(W0, d, P)).toBeCloseTo(d * 1e-5, 18);
+      expect(coastCoilCurrentA(W0, d, P)).toBeCloseTo(d * coastCoilCurrentA(W0, 1, P), 18);
     }
     expect(coastBrakeTorqueNm(W0 / 2, 1, P)).toBeCloseTo(full / 2, 18);
   });
@@ -87,11 +87,11 @@ describe('spin-down from 8 rev/s', () => {
 
   it('with the Stribeck term removed, matches the closed form for Coulomb and viscous drag', () => {
     // Without breakaway friction, J·dω/dt = −τ_c − b·ω, with b the viscous
-    // coefficient plus d·k_e²/R. Then ω(t) = (ω₀ + τ_c/b)·e^(−t·b/J) − τ_c/b,
+    // coefficient plus d·(π²/8)·k_e²/R. Then ω(t) = (ω₀ + τ_c/b)·e^(−t·b/J) − τ_c/b,
     // and the wheel stops at t = (J/b)·ln(1 + b·ω₀/τ_c).
     const plain: SimParams = { ...P, frictionStaticNm: P.frictionCoulombNm };
     for (const duty of [0, 0.5, 1]) {
-      const b = P.frictionViscousNmSRad + (duty * P.generatorKeVSRad ** 2) / P.coilResistanceOhm;
+      const b = P.frictionViscousNmSRad + (duty * (Math.PI ** 2 / 8) * P.generatorKeVSRad ** 2) / P.coilResistanceOhm;
       const tauS = P.rotorInertiaKgM2 / b;
       const c = P.frictionCoulombNm / b;
       const stopS = tauS * Math.log(1 + W0 / c);

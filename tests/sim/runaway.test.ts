@@ -58,10 +58,10 @@ describe('the unbraked run-down', () => {
   const brownout = samples.findIndex((s) => !s.icOn);
   const stall = regimes.indexOf('stalled');
 
-  it('browns the IC out at 93,831 s (26.06 h) and stops the wheel at 104,186 s (28.94 h), as PHYSICS.md states', () => {
+  it('browns the IC out at 93,826 s (26.06 h) and stops the wheel at 104,186 s (28.94 h), as PHYSICS.md states', () => {
     // Deterministic, and sampled at the averaged step, so asserted to the
     // second, as test 4 does for the regulated run-down.
-    expect(samples[brownout]!.timeS).toBe(93_831);
+    expect(samples[brownout]!.timeS).toBe(93_826);
     expect(samples[stall]!.timeS).toBe(104_186);
   });
 

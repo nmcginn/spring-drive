@@ -310,7 +310,7 @@ test.describe('lenz-brake', () => {
     // PHYSICS.md, D4 and D10: a quarter of 198.9 nN·m, against 9.5 nN·m of friction.
     await expect(readout(page, LENZ, 'Brake torque')).toHaveText('49.7\u202fnN·m');
     await expect(readout(page, LENZ, 'Friction torque')).toHaveText('9.5\u202fnN·m');
-    await expect(readout(page, LENZ, 'Mean coil current')).toHaveText('2.50\u202fµA');
+    await expect(readout(page, LENZ, 'Mean coil current')).toHaveText('2.03\u202fµA');
     await expect(load(page)).toHaveAttribute('aria-valuetext', '25\u202f% of the time');
     await expectTicking(page, LENZ);
     await snap(page, 'lenz-brake');

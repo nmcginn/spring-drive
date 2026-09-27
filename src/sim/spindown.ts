@@ -3,7 +3,7 @@
 // and let go, and only friction and the coil slow it. The coil is either
 // open, when no current flows and it does nothing, or shorted, for a
 // fraction `duty` of the time, when the current its EMF drives brakes the
-// wheel with k_e²·ω/R (decision 20). Nothing else is connected: no
+// wheel with (π²/8)·k_e²·ω/R (decisions 20 and 35). Nothing else is connected: no
 // rectifier, no capacitor, no IC. That is the brake on its own, before the
 // loop section lets the IC work the switch.
 //
@@ -53,13 +53,13 @@ function clampDuty(duty: number): number {
 
 /**
  * Brake torque with the coil shorted for a fraction `duty` of the time, N·m:
- * duty × k_e²·ω/R, which is PLAN.md's k_e²·ω/R_eff with R_eff = R/duty.
+ * duty × (π²/8)·k_e²·ω/R, the sine EMF's mean-square heat in the coil.
  */
 export function coastBrakeTorqueNm(omegaRadS: number, duty: number, params: SimParams): number {
   return clampDuty(duty) * maxBrakeTorqueNm(omegaRadS, params);
 }
 
-/** Mean current around the coil, A: e/R while shorted, none while open. */
+/** Mean magnitude of the current around the coil, A: mean EMF over R while shorted, none while open. */
 export function coastCoilCurrentA(omegaRadS: number, duty: number, params: SimParams): number {
   return (clampDuty(duty) * emfV(omegaRadS, params)) / params.coilResistanceOhm;
 }

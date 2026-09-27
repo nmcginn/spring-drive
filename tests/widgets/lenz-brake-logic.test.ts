@@ -64,8 +64,8 @@ describe('lenz-brake: held, before letting go', () => {
 
   it('shows the torque the hand holding it would feel, which the slider changes at once', () => {
     const s = initialLenzState();
-    // A quarter of D4's 198.9 nN·m, and a quarter of 10 µA.
-    expect(values(s).slice(0, 6)).toEqual(['8.00 rev/s', '25 %', '49.7 nN·m', '9.5 nN·m', '2.50 µA', '0.000 s']);
+    // A quarter of D4's 198.9 nN·m, and a quarter of D10's 8.106 µA.
+    expect(values(s).slice(0, 6)).toEqual(['8.00 rev/s', '25 %', '49.7 nN·m', '9.5 nN·m', '2.03 µA', '0.000 s']);
     expect(values(setDuty(s, 1))[2]).toBe('198.9 nN·m');
     expect(values(setDuty(s, 0))[2]).toBe('0.0 nN·m');
     expect(values(setDuty(s, 0))[4]).toBe('0.00 µA');

@@ -10,9 +10,9 @@ describe('the power supply', () => {
     expect(nextIcOn(true, 0.59, P)).toBe(false);
   });
 
-  it('draws constant power: 25 nW is 31.4 nA at 0.7965 V (D5)', () => {
-    expect(icCurrentA(true, 0.7965, P)).toBeCloseTo(3.139e-8, 11);
-    expect(icCurrentA(false, 0.7965, P)).toBe(0);
+  it('draws constant power: 25 nW is 31.4 nA at 0.7956 V (D5)', () => {
+    expect(icCurrentA(true, 0.7956, P)).toBeCloseTo(3.1423e-8, 11);
+    expect(icCurrentA(false, 0.7956, P)).toBe(0);
   });
 
   it('charges the capacitor by (i_in − i_out)/C, and never below zero', () => {

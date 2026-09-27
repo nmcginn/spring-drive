@@ -56,7 +56,7 @@ export const GENERATOR_EMF_AT_TARGET_V = 1;
 export const GENERATOR_KE_V_S_RAD = GENERATOR_EMF_AT_TARGET_V / ROTOR_TARGET_OMEGA_RAD_S;
 /** One north and one south pole: one cycle of EMF per turn. Only the waveform depends on it. */
 export const GENERATOR_POLE_PAIRS = 1;
-export const COIL_RESISTANCE_OHM = 100_000;
+export const COIL_RESISTANCE_OHM = 123_370;
 export const RECTIFIER_DROP_V = 0.2;
 
 // 5. Power supply and IC ------------------------------------------------------

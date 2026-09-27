@@ -49,17 +49,17 @@ describe('test 4: rundown', () => {
     for (let i = 1; i < tail.length; i++) expect(tail[i]!.rotorOmegaRadS).toBeLessThan(tail[i - 1]!.rotorOmegaRadS);
   });
 
-  it('browns out the IC at 70.848 h, from the 6.433 rev/s where the capacitor falls to 0.6 V', () => {
-    expect(samples[brownout]!.timeS).toBe(255_053);
+  it('browns out the IC at 70.847 h, from the 6.441 rev/s where the capacitor falls to 0.6 V', () => {
+    expect(samples[brownout]!.timeS).toBe(255_048);
     const before = samples[brownout - 1]!;
-    // D5: (0.6 + 0.0025/0.6 + 0.2) V × 8 rev/s per volt = 6.4333 rev/s.
+    // D5: (0.6 + 0.0030843/0.6 + 0.2) V × 8 rev/s per volt = 6.4411 rev/s.
     // 0.0005: half a unit in the last digit PHYSICS.md shows.
-    expect(Math.abs(revS(icSustainOmegaRadS(P)) - 6.433)).toBeLessThan(0.0005);
+    expect(Math.abs(revS(icSustainOmegaRadS(P)) - 6.441)).toBeLessThan(0.0005);
     // 0.003 rev/s: the last sample before brownout is up to one averaged step
     // before the threshold, and here the wheel slows by about 0.002 rev/s a
-    // second (from 8 to 6.43 rev/s in the 731 s between the two events).
+    // second (from 8 to 6.44 rev/s in the 727 s between the two events).
     expect(revS(before.rotorOmegaRadS)).toBeGreaterThan(revS(icSustainOmegaRadS(P)));
-    expect(revS(before.rotorOmegaRadS) - 6.433).toBeLessThan(0.003);
+    expect(revS(before.rotorOmegaRadS) - 6.441).toBeLessThan(0.003);
     // 1 mV: just above brownout, one step before it.
     expect(before.capVoltageV - P.icBrownoutV).toBeLessThan(1e-3);
   });
@@ -68,12 +68,18 @@ describe('test 4: rundown', () => {
     expect(samples.slice(brownout).every((s) => !s.icOn)).toBe(true);
   });
 
-  it('stops the glide wheel at 73.725 h, at the 0.00374 of full wind where the drive falls below friction', () => {
-    expect(samples[stall]!.timeS).toBe(265_409);
+  it('stops the glide wheel at 73.724 h, at the 0.00374 of full wind where the drive falls below friction', () => {
+    expect(samples[stall]!.timeS).toBe(265_408);
     // Half a unit in the last digit PHYSICS.md shows.
     expect(Math.abs(windFraction(samples[stall]!.barrelAngleRad, P) - 0.00374)).toBeLessThan(5e-6);
-    // D3: it stalls from the friction minimum, 2.24 rad/s, about 0.36 rev/s.
-    expect(Math.abs(revS(samples[stall - 1]!.rotorOmegaRadS) - 0.357)).toBeLessThan(0.001);
+    // D3: it stalls from the friction minimum, 2.24 rad/s, 0.3565 rev/s. The
+    // last sample is up to one averaged step before the stall, and the speed
+    // falls into that minimum like the square root of the time left, so it is
+    // steepest in the final second: 0.0028 rev/s over it in this run. So
+    // assert the sample is above the minimum and within 0.005 rev/s of it.
+    const lastRevS = revS(samples[stall - 1]!.rotorOmegaRadS);
+    expect(lastRevS).toBeGreaterThan(0.3565);
+    expect(lastRevS - 0.3565).toBeLessThan(0.005);
   });
 
   it('stays stopped: breakaway friction holds a wheel the spring can no longer start', () => {

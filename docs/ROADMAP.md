@@ -12,16 +12,16 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M6 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10.
-- Last session: 2026-09-27, M6: the `quartz` widget, each divider stage's level in `src/sim/quartz.ts`, derivation D11, and decision 34.
-- Open PRs waiting on review: M6.
-- Next up: M7 (`loop`). M8 is eligible too; neither needs M6's PR. The open question below is best settled before M7.
+- Current milestone: M6 merged as #11. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10.
+- Last session: 2026-09-27, with the maintainer: answered the brake question (decision 35: the brake is the drawn sine's mean-square heat, and the coil's resistance rose to 123,370 Ω so the brake did not move), and a plausibility review of every number (PHYSICS.md, **Plausibility check**), which added task M7b.
+- Open PRs waiting on review: the decision 35 PR.
+- Next up: M7 (`loop`). M7b is eligible too, and M8 now needs it.
 
 ## Open questions for the maintainer
 
 Questions the nightly loop could not answer without guessing at physics, architecture, or the article's structure. Each one names the task it blocks. When the maintainer answers, record the answer in `docs/DECISIONS.md`, add a *Decided* note to the task pointing at it, and delete the question here.
 
-- **Should the brake torque use the waveform's mean square rather than its rectified mean?** (Raised with M5. Blocks nothing yet. The answer would move numbers M7 and M8 show, so it is best settled before M7.) D4 brakes with k_e²·ω/R, where k_e·ω is the rectified-mean EMF. With D9's sine EMF, a coil shorted through a pure resistance would dissipate the mean square, which is π²/8 = 1.23 times more, so the real brake of that coil would be about 23% stronger (PHYSICS.md, D10, "What this brake leaves out"). The options: (a) leave it, and have the article say the brake is modelled from the mean EMF; (b) scale the brake by π²/8, which moves D4's capacity, every steady duty, the lock times, and D10's numbers, and may need the regulator's gains retuned; (c) raise R by π²/8 so the brake stays where it is and the charging path changes instead. The loop has not guessed: every widget uses D4's figure as it is.
+- (none open.)
 
 ---
 
@@ -106,12 +106,28 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 - [ ] **Regulation on and off, shocks, the phase-error scope, and brake duty.**
   *Needs:* M1.
+  *Decided:* the brake is the drawn sine's mean-square heat, with the coil's resistance raised so its figures did not move (decision 35). Brake duty and phase error are unaffected by M7b, so this can land before it.
   *Acceptance:* the widget done-when below.
+
+## M7b: Peak-charging rectifier
+
+- [ ] **Charge the capacitor from the EMF waveform, not its mean.**
+  *Needs:* M2.
+  *Decided:* raised by the plausibility review in decision 35, and scheduled by the maintainer as its own task, before M8.
+  - The charging current, in both modes, is what a rectifier with `RECTIFIER_DROP_V` delivers from the D9 sine through `COIL_RESISTANCE_OHM` into the capacitor: it conducts only while |e(θ)| exceeds the capacitor voltage plus the drop, and its mean over a cycle is a closed-form function of the peak and that threshold. The torque and heat follow from the same waveform, so the ledger still closes.
+  - Averaged mode's regulated point, free regime, and brownout speed become the solutions of the new balance; where the closed-form quadratic no longer applies, solve numerically, and say in D7 how exactly.
+  - D5, D7, D8, **Model predictions**, **Energy budget**, and the **Plausibility check** row for the supply voltage are rewritten from the new balance. The review's estimate, to be confirmed: about 1.34 V at 8 rev/s, brownout near 4.3 rev/s.
+
+  *Acceptance:*
+  - A test integrates the rectifier's current over a turn of the drawn waveform and checks it against the model's mean charging current, as `tests/sim/generator.test.ts` already does for the brake.
+  - `IC_BROWNOUT_V` and `IC_START_V` are checked afresh: the run-down still ends with one clean brownout and no restart chatter. If they must change to keep that, that is a parameter change with its reasoning in PHYSICS.md, not a silent retune.
+  - Every physics test passes with its stated value moved in PHYSICS.md, not its tolerance loosened. The regulator's gains still lock within the D6 criteria at full, mid, and low wind; if they need retuning, the grid search is rerun and recorded.
+  - Merged widgets whose readouts move (the runaway's brownout and stop times, if any) are updated, with their e2e expectations, in the same PR.
 
 ## M8: `tri-synchro` widget
 
 - [ ] **The full system with time acceleration, power reserve, and rundown to brownout.**
-  *Needs:* M2.
+  *Needs:* M2, M7b (the brownout it shows must be the waveform's; decision 35).
   *Decided:* the model's crystal is exact, so a rate readout, if the widget has one, shows 0 s/day while regulated and says beside it that the model's crystal is perfect and the 9R's ±15 s/month allows for a real one. No crystal offset, hidden or as a control (decision 26).
   *Acceptance:* the widget done-when below.
 

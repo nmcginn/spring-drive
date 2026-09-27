@@ -12,9 +12,9 @@ import { P, revS, run } from './helpers.ts';
 // physics that moves one must move PHYSICS.md with it.
 
 describe('test 2: lock', () => {
-  it('locks to 8 rev/s 3.75 s after starting from rest at full wind, and holds it', () => {
+  it('locks to 8 rev/s 3.875 s after starting from rest at full wind, and holds it', () => {
     const { samples } = run({ durationS: 30 });
-    expect(lockTimeS(samples, P)).toBe(3.75);
+    expect(lockTimeS(samples, P)).toBe(3.875);
   });
 
   it.each([
@@ -44,19 +44,22 @@ describe('test 2: lock', () => {
     expect(Math.abs(final.regulator.duty / duty - 1)).toBeLessThan(0.02);
   });
 
-  it('holds the capacitor at the 0.7965 V PHYSICS.md derives for 8 rev/s', () => {
+  it('holds the capacitor at the 0.7956 V PHYSICS.md derives for 8 rev/s', () => {
     const { final } = run({ windFraction: 0.5, durationS: 20 });
     // 0.5 mV: the derivation rounds to 0.1 mV, and the steady duty it uses
     // (0.888 off) is itself rounded.
-    expect(Math.abs(final.capVoltageV - 0.7965)).toBeLessThan(5e-4);
+    expect(Math.abs(final.capVoltageV - 0.7956)).toBeLessThan(5e-4);
   });
 
-  it('overshoots while locking, but never runs away: under 11 rev/s at full wind', () => {
-    const peak = Math.max(...run({ durationS: 10 }).samples.map((s) => revS(s.rotorOmegaRadS)));
-    expect(peak).toBeGreaterThan(ROTOR_TARGET_REV_S);
-    // PHYSICS.md, Model predictions: 10.9 rev/s. The bound is that figure
-    // rounded up; the free-running wheel would pass 30.
-    expect(peak).toBeLessThan(11);
+  it('overshoots while locking to a peak of 11.17 rev/s at full wind, but never runs away', () => {
+    // Sampled every step: the peak falls between reference ticks, and sampled
+    // only at the ticks it reads about 0.3 rev/s low (PHYSICS.md once said 10.9).
+    const peak = Math.max(
+      ...run({ durationS: 10, sampleIntervalS: P.stepS }).samples.map((s) => revS(s.rotorOmegaRadS)),
+    );
+    // Deterministic, so half a unit in the last digit PHYSICS.md shows. The
+    // free-running wheel would pass 30.
+    expect(Math.abs(peak - 11.17)).toBeLessThan(0.005);
   });
 
   it('cannot lock from a fully run-down spring: the wheel never moves and the IC never starts', () => {

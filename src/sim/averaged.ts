@@ -24,7 +24,7 @@
 // which the ledger does not book; see decision 23 for why that is small.
 
 import { capEnergyJ } from './power.ts';
-import { emfV } from './generator.ts';
+import { SINE_MEAN_SQUARE_TO_MEAN_SQUARED, emfV, maxBrakeTorqueNm } from './generator.ts';
 import { mainspringEnergyJ, mainspringTorqueNm, fullWindAngleRad, windBarrel } from './mainspring.ts';
 import { referenceHz } from './quartz.ts';
 import { breakawayTorqueNm, frictionMinimumOmegaRadS, frictionTorqueNm } from './rotor.ts';
@@ -164,7 +164,7 @@ export function regulatedPoint(
 ): { duty: number; capVoltageV: number; chargeA: number } | null {
   const omega = referenceOmegaRadS(params);
   const ke = params.generatorKeVSRad;
-  const fullBrakeNm = (ke * ke * omega) / params.coilResistanceOhm;
+  const fullBrakeNm = maxBrakeTorqueNm(omega, params);
   const excessNm = driveNm - frictionTorqueNm(omega, params);
   const c = 1 - excessNm / fullBrakeNm;
   if (c <= 0) return null;
@@ -221,7 +221,7 @@ function icOnPoint(
       : balanceOmegaRadS(
           driveNm,
           frictionMinimumOmegaRadS(params),
-          (w) => frictionTorqueNm(w, params) + (ke * ke * w) / R,
+          (w) => frictionTorqueNm(w, params) + maxBrakeTorqueNm(w, params),
           params,
         );
     // A drive too weak to turn the wheel against the full brake stops it.
@@ -240,7 +240,7 @@ function icOnPoint(
       capDraining: true,
       untilS: Math.min(holdUpS, fallBackS),
       event: fallBackS < holdUpS ? 'phase-zero' : 'brownout',
-      coilW: stalled ? 0 : (e * e) / R,
+      coilW: stalled ? 0 : (SINE_MEAN_SQUARE_TO_MEAN_SQUARED * e * e) / R,
       rectifierW: 0,
       icW: P,
     };
@@ -260,7 +260,8 @@ function icOnPoint(
         capDraining: false,
         untilS: Infinity,
         event: 'none',
-        coilW: (R * reg.chargeA * reg.chargeA) / (1 - reg.duty) + (reg.duty * e * e) / R,
+        coilW:
+          (R * reg.chargeA * reg.chargeA) / (1 - reg.duty) + (reg.duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * e * e) / R,
         rectifierW: params.rectifierDropV * reg.chargeA,
         icW: P,
       };

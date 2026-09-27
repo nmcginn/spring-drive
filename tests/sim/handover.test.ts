@@ -54,7 +54,7 @@ describe('detailed mode carried on from a settled averaged state', () => {
     const d = detailedFromAveraged(createAveragedState(P, { windFraction: 1 }), P);
     // D4 and D5 give these to three and four significant figures.
     expect(d.regulator.duty).toBeCloseTo(0.112, 3);
-    expect(d.capVoltageV).toBeCloseTo(0.7965, 4);
+    expect(d.capVoltageV).toBeCloseTo(0.7956, 4);
     expect(d.regulator.icOn).toBe(true);
     expect(d.rotorOmegaRadS).toBe(P.rotorTargetOmegaRadS);
   });
