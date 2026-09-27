@@ -13,6 +13,7 @@ const RUNAWAY = '.widget-runaway';
 const GENERATOR = '.widget-generator';
 const LENZ = '.widget-lenz-brake';
 const QUARTZ = '.widget-quartz';
+const LOOP = '.widget-loop';
 
 const WIDGETS = [
   { name: 'hero-glide', selector: HERO, playName: 'the two watches' },
@@ -20,6 +21,7 @@ const WIDGETS = [
   { name: 'generator', selector: GENERATOR, playName: 'the generator' },
   { name: 'lenz-brake', selector: LENZ, playName: 'the coil brake' },
   { name: 'quartz', selector: QUARTZ, playName: 'the quartz divider' },
+  { name: 'loop', selector: LOOP, playName: 'the regulating loop' },
 ] as const;
 
 /** Bring a widget into view; lower widgets mount only as they near the viewport. */
@@ -464,6 +466,100 @@ test.describe('quartz', () => {
     await open(page, 'quartz', QUARTZ);
     await expect.poll(() => ticks(page, QUARTZ)).toBeGreaterThan(30);
     await snap(page, 'quartz-dark');
+  });
+});
+
+test.describe('loop', () => {
+  const faster = (page: Page) =>
+    page.getByRole('button', { name: 'Knock the watch so the glide wheel speeds up by 2 rev/s' });
+  const slower = (page: Page) =>
+    page.getByRole('button', { name: 'Knock the watch so the glide wheel slows down by 2 rev/s' });
+  const regulation = (page: Page) =>
+    page.getByRole('button', { name: 'Regulation: the IC brakes the glide wheel to hold it on the reference' });
+  const value = async (page: Page, label: string) =>
+    parseFloat(((await readout(page, LOOP, label).textContent()) ?? '').replace('\u2212', '-'));
+  const lockedFor = (page: Page) => value(page, 'Locked for');
+
+  test('opens locked at 8 rev/s, on the steady duty the model gives at full wind', async ({ page, snap }) => {
+    await open(page, 'loop', LOOP);
+    await expect(readout(page, LOOP, 'Glide wheel speed')).toHaveText('8.000\u202frev/s');
+    await expect(readout(page, LOOP, 'Phase error')).toHaveText(/^\u2212?0\.0°$/);
+    // PHYSICS.md, D4: 11.2 % of the time shorted holds full wind at 8 rev/s.
+    await expect(readout(page, LOOP, 'Brake duty')).toHaveText('11.2\u202f%');
+    await expect(readout(page, LOOP, 'Hands vs true time')).toHaveText(/^\u2212?0\.0\u202fms$/);
+    await expect(regulation(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => lockedFor(page)).toBeGreaterThan(1);
+    await snap(page, 'loop');
+  });
+
+  test('a knock, its primary control, is pushed back and lock returns within 3 s', async ({ page, snap }) => {
+    await open(page, 'loop', LOOP);
+    const pause = page.getByRole('button', { name: 'Pause animations' });
+    const resume = page.getByRole('button', { name: 'Resume animations' });
+    await press(faster(page));
+    // The knock is judged at the next reference tick, an eighth of a second on.
+    await expect.poll(() => lockedFor(page)).toBe(0);
+    // Stop part way through the response for the screenshot. Where it stops
+    // depends on the frame rate, so the size of the error is left to the
+    // logic tests (tests/widgets/loop-logic.test.ts); here it is only off zero.
+    await frames(page, 15);
+    await press(pause);
+    await expectStill(page, LOOP);
+    expect(Math.abs(await value(page, 'Phase error'))).toBeGreaterThan(0.1);
+    await snap(page, 'loop-knock-faster');
+    await press(resume);
+    // Test 6 (PHYSICS.md): relock within 3.0 s. The poll allows for a slow CI frame rate.
+    await expect.poll(() => lockedFor(page), { timeout: 10_000 }).toBeGreaterThan(0.5);
+    await expect(readout(page, LOOP, 'Glide wheel speed')).toHaveText(/^(7\.99\d|8\.00\d)\u202frev\/s$/);
+
+    await press(slower(page));
+    await expect.poll(() => lockedFor(page)).toBe(0);
+    await frames(page, 15);
+    await press(pause);
+    await expectStill(page, LOOP);
+    expect(Math.abs(await value(page, 'Phase error'))).toBeGreaterThan(0.1);
+    await snap(page, 'loop-knock-slower');
+    await press(resume);
+    await expect.poll(() => lockedFor(page), { timeout: 10_000 }).toBeGreaterThan(0.5);
+  });
+
+  test('with regulation off the wheel runs away, and back on it relocks with the hands still ahead', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'loop', LOOP);
+    await press(regulation(page));
+    await expect(regulation(page)).toHaveAttribute('aria-pressed', 'false');
+    await expect(readout(page, LOOP, 'Brake duty')).toHaveText('0.0\u202f%');
+    // Unbraked at full wind the wheel heads for 30.6 rev/s (test 1), and the phase error runs off in turns.
+    await expect.poll(() => value(page, 'Glide wheel speed'), { timeout: 10_000 }).toBeGreaterThan(25);
+    await expect(readout(page, LOOP, 'Phase error')).toHaveText(/^\+[\d.]+\u202fturns$/);
+    await snap(page, 'loop-regulation-off');
+
+    await press(regulation(page));
+    await expect(regulation(page)).toHaveAttribute('aria-pressed', 'true');
+    // The reference restarts from the wheel, and the loop pulls it back to 8 rev/s.
+    await expect.poll(() => lockedFor(page), { timeout: 15_000 }).toBeGreaterThan(0.5);
+    await expect(readout(page, LOOP, 'Hands vs true time')).toHaveText(/^\+\d+\.\d\d\u202fs$/);
+    await snap(page, 'loop-relocked');
+  });
+
+  test('under reduced motion, a knock draws its whole response in the still frame', async ({ page, snap }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, 'loop', LOOP);
+    await press(faster(page));
+    await expectStill(page, LOOP);
+    // Six seconds of sim time were run at once: relocked, as test 6 promises within 3.0 s.
+    expect(await lockedFor(page)).toBeGreaterThan(2);
+    await snap(page, 'loop-reduced-motion-knock');
+  });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'loop', LOOP);
+    await press(slower(page));
+    await frames(page, 45);
+    await snap(page, 'loop-dark');
   });
 });
 

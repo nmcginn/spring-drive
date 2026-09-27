@@ -28,7 +28,6 @@ import {
   setDuty,
   setSlowMotion,
   sinceReleaseS,
-  placeLabels,
   openCoilLabelTimeS,
   torqueArcRad,
   type LenzState,
@@ -199,20 +198,6 @@ describe('lenz-brake: the plot', () => {
     expect(plotPoint(box, 0, W0, 1.25, 8)).toEqual({ x: 10, y: 20 });
     expect(plotPoint(box, 1.25, 0, 1.25, 8)).toEqual({ x: 110, y: 70 });
     expect(plotPoint(box, 5, 2 * W0, 1.25, 8)).toEqual({ x: 110, y: 20 });
-  });
-
-  it('writes each run’s name beside its stop, to the right if it fits, else to the left, and never over another', () => {
-    const placed = placeLabels(
-      [
-        { x: 100, width: 40 }, // right of its stop
-        { x: 290, width: 40 }, // no room right: left
-        { x: 95, width: 40 }, // right overlaps the first: left
-        { x: 100, width: 40 }, // both sides taken: left off
-      ],
-      0,
-      300,
-    );
-    expect(placed).toEqual([{ from: 104, to: 144 }, { from: 246, to: 286 }, { from: 51, to: 91 }, null]);
   });
 
   it('writes the open coil’s name half way across, above the slowest curve', () => {

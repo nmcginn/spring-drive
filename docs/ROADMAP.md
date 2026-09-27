@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M6 merged as #11. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10.
-- Last session: 2026-09-27, with the maintainer: answered the brake question (decision 35: the brake is the drawn sine's mean-square heat, and the coil's resistance rose to 123,370 Ω so the brake did not move), and a plausibility review of every number (PHYSICS.md, **Plausibility check**), which added task M7b.
-- Open PRs waiting on review: the decision 35 PR.
-- Next up: M7 (`loop`). M7b is eligible too, and M8 now needs it.
+- Current milestone: M7 (`loop`), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, and decision 35 as #12.
+- Last session: 2026-09-27, M7: the loop widget, with derivation D12 and decision 36. No new parameter.
+- Open PRs waiting on review: M7.
+- Next up: M7b (peak-charging rectifier), from `master`; it does not need M7. M8 needs M7b.
 
 ## Open questions for the maintainer
 
@@ -104,7 +104,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M7: `loop` widget
 
-- [ ] **Regulation on and off, shocks, the phase-error scope, and brake duty.**
+- [x] **Regulation on and off, shocks, the phase-error scope, and brake duty.**
   *Needs:* M1.
   *Decided:* the brake is the drawn sine's mean-square heat, with the coil's resistance raised so its figures did not move (decision 35). Brake duty and phase error are unaffected by M7b, so this can land before it.
   *Acceptance:* the widget done-when below.
@@ -164,6 +164,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M7: `loop` widget** (2026-09-27). The whole movement at full wind in detailed mode, regulated, opening locked on the steady 11.2% duty. The glide wheel is drawn as the reference sees it, turned by the phase error: locked, it stands still with its north pole under the coil; knocked, it swings away and back. A scope traces the last 8 s of speed, phase error, and brake duty. "Knock +2 rev/s" and "Knock −2 rev/s" apply the nominal shock: the phase error swings +44.6° to +55.6° or −56.4° to −67.3°, depending on where in the reference period the knock lands, and lock returns within 3.0 s. The Regulation toggle opens the coil and the wheel runs away toward 30.6 rev/s, the phase error growing 22.6 turns a second; back on, the reference restarts from the wheel as at a power-on, and the loop relocks (4.75 s after 3 s off) while the hands keep what they gained. Readouts give speed, phase error, duty, brake torque, time in lock, the hands against true time, and the wind. Still frames run six seconds of the response at once. PHYSICS.md gains D12 and five predictions, with no new parameter; `tests/sim/disturbance.test.ts` gains the knock's swing over the reference period. `placeLabels` moved to `widgets/shared/labels.ts`. Decision 36.
 
 - **M6: `quartz` widget** (2026-09-27). A logic analyser on the divider chain: thirteen rows, the crystal's 32,768 Hz at the top and each row below half the one above, down to the 8 Hz reference, scrolling past a "now" edge with a lamp for each stage's level. The primary control slows the crystal by powers of two, from real time, where only the 32, 16, and 8 Hz stages can be drawn and the reference ticks eight times a second, to 1/4,096, where the crystal itself swings at 8 Hz. Rows too fast to draw are shaded, not aliased, and a tuning-fork crystal swings beside the diagram, blurred until it is slow enough to follow. Dashed lines mark each counter rollover, where every stage falls at once: a reference tick. Readouts give the playback rate, the crystal's frequency on screen, how often a tick comes, the counter, and the ticks given. `src/sim/quartz.ts` gains each stage's level as a bit of the cycle count, the counter, and the tick count; PHYSICS.md gains D11, with no new parameter. `widgets/shared/format.ts` gains `formatCount` and `formatShortTime`, and slow playback rates group their thousands ("1/4,096×"). The widget contract test now accepts a slider as a widget's own control. Decision 34.
 
