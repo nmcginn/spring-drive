@@ -19,7 +19,7 @@ src/
     rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal; the friction minimum.
     generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat; the instantaneous EMF waveform (D9).
     power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
-    quartz.ts               The 32,768 Hz divider chain and the integer-counted reference phase.
+    quartz.ts               The 32,768 Hz divider chain, the integer-counted reference phase, and each stage's level as a bit of the cycle count (D11).
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
     detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, winding, realignment, and runScenario.
     spindown.ts             The glide wheel let go with the spring out of the way: friction and the duty-averaged coil brake, stepped as in detailed mode, with an exact energy ledger (D10).
@@ -36,7 +36,7 @@ src/
     registry.ts             Widget IDs mapped to lazy imports.
     shared/                 What every widget uses (decision 27):
       shell.ts                The canvas, readouts, controls, scheduler registration, and unmount.
-      format.ts               Readout values with their units, and playback rates.
+      format.ts               Readout values with their units, counts with thousands separators, short times, and playback rates.
       dial.ts                 Hand angles and dial geometry, pure.
       draw.ts                 Canvas drawing of dials, hands, labels, the glide wheel's magnet, and the coil.
       magnet.ts               The magnet's pole sectors, and when to letter them, pure.
@@ -45,6 +45,7 @@ src/
     runaway/                The unbraked glide wheel, wound, in real time or fast-forward (decision 28). logic.ts is pure; index.ts mounts and draws.
     generator/              The magnet turned at the reader's speed, and a scope of the coil's EMF (decision 31). logic.ts is pure; index.ts mounts and draws.
     lenz-brake/             The wheel let go from 8 rev/s, braked by friction and the coil, with its spin-down plotted (decision 33). logic.ts is pure; index.ts mounts and draws.
+    quartz/                 The crystal and every stage of the divider chain on a logic analyser, slowed by powers of two (decision 34). logic.ts is pure; index.ts mounts and draws.
 tools/
   sim-cli.ts                `npm run sim -- <scenario>… | all [--out <dir>]`: main(argv, io) returns the exit code.
   scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
@@ -61,7 +62,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists the widgets still to come (M6 to M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
+The target in `PLAN.md` also lists the widgets still to come (M7 and M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
 
 ## The rule: physics, runtime, and widgets stay separate
 

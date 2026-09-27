@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   UNIT_SPACE,
+  formatCount,
   formatDuration,
   formatPercent,
   formatPlayback,
   formatRatio,
+  formatShortTime,
   withUnit,
 } from '../../src/widgets/shared/format.ts';
 
@@ -74,5 +76,41 @@ describe('formatPlayback', () => {
     expect(formatPlayback(1)).toBe('1×');
     expect(formatPlayback(0.25)).toBe('1/4×');
     expect(formatPlayback(1 / 8)).toBe('1/8×');
+  });
+
+  it('groups the thousands in a very slow rate, as the prose writes them', () => {
+    expect(formatPlayback(1 / 4096)).toBe('1/4,096×');
+    expect(formatPlayback(1 / 64)).toBe('1/64×');
+  });
+});
+
+describe('formatCount', () => {
+  it('puts commas between thousands, as the prose writes 32,768', () => {
+    expect(formatCount(0)).toBe('0');
+    expect(formatCount(8)).toBe('8');
+    expect(formatCount(999)).toBe('999');
+    expect(formatCount(4096)).toBe('4,096');
+    expect(formatCount(32768)).toBe('32,768');
+    expect(formatCount(2_073_600)).toBe('2,073,600');
+  });
+
+  it('rounds to a whole number, and uses a real minus sign', () => {
+    expect(formatCount(4095.6)).toBe('4,096');
+    expect(formatCount(-1234)).toBe('\u22121,234');
+  });
+});
+
+describe('formatShortTime', () => {
+  it('picks seconds, milliseconds, or microseconds, to three significant figures', () => {
+    expect(formatShortTime(-1)).toBe(`\u22121.00${UNIT_SPACE}s`);
+    expect(formatShortTime(-1 / 8)).toBe(`\u2212125${UNIT_SPACE}ms`);
+    expect(formatShortTime(-1 / 64)).toBe(`\u221215.6${UNIT_SPACE}ms`);
+    expect(formatShortTime(-1 / 4096)).toBe(`\u2212244${UNIT_SPACE}µs`);
+    expect(formatShortTime(-1 / 1024)).toBe(`\u2212977${UNIT_SPACE}µs`);
+    expect(formatShortTime(-1 / 512)).toBe(`\u22121.95${UNIT_SPACE}ms`);
+  });
+
+  it('reads zero as seconds, not as a tiny unit', () => {
+    expect(formatShortTime(0)).toBe(`0.00${UNIT_SPACE}s`);
   });
 });

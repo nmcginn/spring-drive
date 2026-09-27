@@ -272,6 +272,36 @@ The lenz-brake widget (M5) lets the glide wheel go from 8 rev/s with nothing dri
 
 **What this brake leaves out.** D4's brake is the rectified-mean EMF driven through the coil's resistance, k_e²·ω/R. If the coil's EMF is the sine of D9, a coil shorted through a pure resistance dissipates the sine's mean square, e_peak²/2R, not (mean |e|)²/R. That is (π/2)² ÷ 2 = π²/8 = **1.23** times more, so a fully shorted coil with that waveform would brake about 23% harder than the model says. Every widget uses D4's figure, so they agree with each other, and k_e and R are both assumptions, so the difference could be absorbed into either. It is flagged for the maintainer under Open questions in `docs/ROADMAP.md`. The coil's inductance is also left out, as it is in D4.
 
+### D11. The divider chain, stage by stage
+
+The quartz widget (M6) draws the output of every stage of the divider chain from D0. Nothing new is assumed and no parameter is added: the chain is `QUARTZ_HZ` halved `REFERENCE_DIVIDER_STAGES` times. What the widget adds is the level of each stage at each moment, which `src/sim/quartz.ts` gives as a pure function of the crystal's cycle count.
+
+| Stage | Output (Hz) | Crystal cycles per level (half-period) | Half-period (s) |
+|---|---|---|---|
+| 0, the oscillator | 32,768 | 0.5 | 15.26 µs |
+| 1 | 16,384 | 1 | 30.52 µs |
+| 2 | 8,192 | 2 | 61.04 µs |
+| 3 | 4,096 | 4 | 122.1 µs |
+| 4 | 2,048 | 8 | 244.1 µs |
+| 5 | 1,024 | 16 | 488.3 µs |
+| 6 | 512 | 32 | 976.6 µs |
+| 7 | 256 | 64 | 1.953 ms |
+| 8 | 128 | 128 | 3.906 ms |
+| 9 | 64 | 256 | 7.813 ms |
+| 10 | 32 | 512 | 15.63 ms |
+| 11 | 16 | 1,024 | 31.25 ms |
+| 12, the reference | 8 | 2,048 | 62.5 ms |
+
+Stage j's output is 32,768 ÷ 2ʲ Hz, and holds each level for 2ʲ⁻¹ crystal cycles (half a cycle for the oscillator itself), so its half-period is 2ʲ⁻¹ ÷ 32,768 s.
+
+- **The oscillator's output.** The crystal swings sinusoidally, and the oscillator circuit squares that swing into a clock. The model takes the clock as low for the first half of each cycle and high for the second, so it falls as each cycle completes. Which half is high is a convention, and nothing else depends on it.
+- **Each divider halves the one before.** Each stage is a flip-flop that changes state on every falling edge of the stage before it. So stage 1 changes once per crystal cycle, stage 2 once per two, and stage j once per 2ʲ⁻¹, which makes stage j's level bit j − 1 of the whole number of cycles counted: the chain is a 12-bit binary counter. `tests/sim/quartz.test.ts` checks this three ways: by counting each stage's edges over a second, by checking that each stage toggles on its input's falling edge and never otherwise, and by reading the levels as a binary number.
+- **The reference tick.** The counter reads 0 to 4,095 and rolls over to 0 every 4,096 cycles, with every stage falling at once. Each rollover is one reference tick: 32,768 ÷ 4,096 = **8 per second**, and one every **0.125 s**. That is the same 4,096 cycles per tick the regulator already uses (D0, D6, decision 19), so the widget's ticks and the loop's are the same ticks.
+- **Why it cannot drift.** The reference is not a second oscillator that could run at its own rate. It is the crystal's own cycles, counted, so it is exactly 1/4,096 of the crystal's frequency, and any error it has is the crystal's. The model's crystal is exact (decision 26), so in the model the reference is too. A real crystal is cut to a tolerance and drifts with temperature; no figure for either is published for the 9R, so the model has none, and the article says so.
+- **Ripple or synchronous.** A chain of flip-flops each clocked by the one before is a ripple counter; a synchronous counter clocks every stage from the crystal. Their outputs differ only by the flip-flops' propagation delays, nanoseconds each, which no widget could draw. Seiko has not published the 9R's IC, so the widget shows the principle, and the prose says so.
+
+**How the widget shows it.** 32,768 Hz cannot be drawn at 60 frames a second, so the widget slows the crystal by a power of two, 2⁰ to 2¹². Slowed 2ᵏ times, stage j cycles on screen at 2¹⁵⁻ʲ⁻ᵏ Hz. At k = 12 the oscillator shows at 2³ = **8 Hz**, the reference's own rate at real time, which is why the slider stops there: the chain is twelve stages long, and so is the slider. The diagram shows the last second of page time, so a trace is drawn only if its levels are at least 3 px wide; the rest are shaded. At real time on a 380 px phone, where the canvas is 324 px wide and the traces 210 px, a stage's level is 210 × 2ʲ⁻¹ ÷ 32,768 px: that leaves the 32, 16, and 8 Hz stages (3.3, 6.6, and 13.1 px), and shades the 64 Hz stage's 1.6 px and everything above it. The drawn crystal is a tuning fork, the usual shape of a 32,768 Hz watch crystal, and its swing is exaggerated: a real tine moves far less than its own width.
+
 ## Model predictions
 
 What the parameters above imply, as asserted by the physics tests. When a parameter changes, these change, and the tests say so.
@@ -304,6 +334,9 @@ What the parameters above imply, as asserted by the physics tests. When a parame
 | Brake at 8 rev/s, fully shorted, against friction | 198.9 nN·m, 20.85× friction's 9.542 nN·m | `tests/sim/spindown.test.ts` (D10) |
 | Spin-down from 8 rev/s, spring out of the way: open, 25%, 50%, 100% shorted | 1.118 s, 0.299 s, 0.185 s, 0.110 s | `tests/sim/spindown.test.ts`, `tests/widgets/lenz-brake-logic.test.ts` (D10) |
 | Share of the wheel's energy heating the coil in those spin-downs | 0%, 82%, 95% (open, 25%, 100%) | `tests/sim/spindown.test.ts` (D10) |
+| Divider chain, stage j | 32,768 ÷ 2ʲ Hz; level = bit j − 1 of the cycle count | `tests/sim/quartz.test.ts` (D11) |
+| Reference ticks | one per counter rollover, every 4,096 cycles: 8 a second, 28,800 an hour, 2,073,600 in 72 h | `tests/sim/quartz.test.ts` (D0, D11) |
+| Quartz widget, slowed 4,096 times | the oscillator cycles on screen at 8 Hz; a reference tick every 512 s | `tests/widgets/quartz-logic.test.ts` (D11) |
 | Energy balance, detailed mode | within 1 part in 10⁵ | Test 5, `tests/sim/energy.test.ts` |
 
 Lock times are multiples of 0.125 s because lock is judged once per reference period.
@@ -328,4 +361,4 @@ The budget closes by construction here. Averaged mode's ledger over a full run-d
 
 When a value changes after it first lands, note it here: date, PR, old and new value, and why. Amend rows in place, and keep the history here.
 
-- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, M4 added `GENERATOR_POLE_PAIRS` and derivation D9, and M5 added derivation D10 with no new parameter; none changed an existing value.)
+- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, M4 added `GENERATOR_POLE_PAIRS` and derivation D9, M5 added derivation D10, and M6 added derivation D11, the last two with no new parameter; none changed an existing value.)
