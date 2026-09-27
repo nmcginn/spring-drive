@@ -46,7 +46,7 @@ export interface SimParams {
   /**
    * North-south pole pairs on the glide wheel's magnet: electrical cycles of
    * the coil's EMF per turn. Only the waveform depends on it; the dynamics
-   * use the rectified mean, which does not.
+   * average the brake and the charging over each cycle, which does not.
    */
   generatorPolePairs: number;
   coilResistanceOhm: number;

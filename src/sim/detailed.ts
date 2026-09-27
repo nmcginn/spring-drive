@@ -89,7 +89,7 @@ function stepInPlace(s: SimState, params: SimParams, controls: SimControls): voi
   // Torques and currents at the start of the step.
   const driveNm = reflectedDriveTorqueNm(mainspringTorqueNm(s.barrelAngleRad, params), params);
   const currents = coilCurrents(omega0, s.capVoltageV, duty, params);
-  const generatorNm = generatorTorqueNm(currents, params);
+  const generatorNm = generatorTorqueNm(currents, omega0, params);
 
   // Glide wheel: speed first, then angle from the new speed.
   const omega1 = nextOmegaRadS(omega0, driveNm, generatorNm, dtS, params);

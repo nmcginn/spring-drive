@@ -82,11 +82,13 @@ describe('runaway: winding, in real time', () => {
     expect(shownS(rewound, P)).toBe(0);
   });
 
-  it('records each frame’s sweep for the motion blur: about half a turn at 30.6 rev/s and 60 frames a second', () => {
+  it('records each frame’s sweep for the motion blur: about half a turn at 30 rev/s and 60 frames a second', () => {
     const s = frames(wind(initialRunawayState(P), P), 5 * 60);
     // A frame is a whole number of detailed steps, so it varies by one step.
     expect(Math.abs(s.sweepRad - rotorOmegaRadS(s) * FRAME_S)).toBeLessThan(rotorOmegaRadS(s) * P.stepS * 1.01);
-    expect(s.sweepRad / TAU).toBeCloseTo(0.51, 2);
+    // Five seconds after winding the wheel is at 30.0 rev/s, still charging
+    // the capacitor on its way to 30.6 (D12): 0.500 of a turn a frame.
+    expect(s.sweepRad / TAU).toBeCloseTo(0.5, 2);
   });
 
   it('stands still for a zero-length frame, and steps no more than a clamped 0.1 s frame, plus what earlier frames carried', () => {
@@ -111,19 +113,19 @@ describe('runaway: fast-forward', () => {
     expect(trueS(s)).toBeCloseTo(3600, 6);
   });
 
-  it('runs the spring down and stops the wheel at 28.94 h, as the unbraked run-down in PHYSICS.md does', () => {
+  it('runs the spring down and stops the wheel at 28.98 h, as the unbraked run-down in PHYSICS.md does', () => {
     let s = setFastForward(wind(initialRunawayState(P), P), true, P);
     let stoppedAtS: number | null = null;
     for (let i = 0; i < 31 * 60 && stoppedAtS === null; i++) {
       s = advanceRunaway(s, FRAME_S, P);
       if (rotorOmegaRadS(s) === 0) stoppedAtS = trueS(s);
     }
-    // The wheel stops at 104,186 s (tests/sim/runaway.test.ts). The widget
+    // The wheel stops at 104,340 s (tests/sim/runaway.test.ts). The widget
     // advances a frame, 60 s of sim time, at a time, so it sees the stop at
     // the end of the frame it falls in: up to 60 s late.
     expect(stoppedAtS).not.toBeNull();
-    expect(stoppedAtS!).toBeGreaterThanOrEqual(104_186 - 1);
-    expect(stoppedAtS!).toBeLessThan(104_186 + 60);
+    expect(stoppedAtS!).toBeGreaterThanOrEqual(104_340 - 1);
+    expect(stoppedAtS!).toBeLessThan(104_340 + 60);
     // The hands show 71.73 h (D8), and stop there.
     expect(shownS(s, P) / 3600).toBeCloseTo(71.73, 2);
     const later = frames(s, 60);
@@ -166,9 +168,10 @@ describe('runaway: fast-forward', () => {
 describe('runaway: readouts', () => {
   it('put a unit on every value', () => {
     const values = readouts(frames(wind(initialRunawayState(P), P), 5 * 60), P).map((r) => r.value);
-    // Five seconds after winding: still settling, hands well ahead.
+    // Five seconds after winding: still settling at 30.0 rev/s, so the hands
+    // run 3.75× real time on their way to 3.83× (D12); hands well ahead.
     expect(values[0]).toMatch(/^30\.\d\u202frev\/s$/);
-    expect(values[1]).toMatch(/^3\.8\d× real time$/);
+    expect(values[1]).toMatch(/^3\.7\d× real time$/);
     expect(values[2]).toMatch(/^\d+\.\d\u202fs$/);
     expect(values[3]).toMatch(/^[45]\.\d\u202fs$/);
     expect(values[4]).toBe('100.0\u202f%');

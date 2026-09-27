@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M7 (`loop`), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, and decision 35 as #12.
-- Last session: 2026-09-27, M7: the loop widget, with derivation D12 and decision 36. No new parameter.
-- Open PRs waiting on review: M7.
-- Next up: M7b (peak-charging rectifier), from `master`; it does not need M7. M8 needs M7b.
+- Current milestone: M7b (peak-charging rectifier), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, and M7 as #13.
+- Last session: 2026-09-27, M7b: the capacitor charges from the sine's peaks, with decision 37. No new parameter; `IC_START_V` and the three regulator gains changed (PHYSICS.md, change log).
+- Open PRs waiting on review: M7b.
+- Next up: M8 (`tri-synchro`), which needs M7b.
 
 ## Open questions for the maintainer
 
@@ -111,7 +111,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M7b: Peak-charging rectifier
 
-- [ ] **Charge the capacitor from the EMF waveform, not its mean.**
+- [x] **Charge the capacitor from the EMF waveform, not its mean.**
   *Needs:* M2.
   *Decided:* raised by the plausibility review in decision 35, and scheduled by the maintainer as its own task, before M8.
   - The charging current, in both modes, is what a rectifier with `RECTIFIER_DROP_V` delivers from the D9 sine through `COIL_RESISTANCE_OHM` into the capacitor: it conducts only while |e(θ)| exceeds the capacitor voltage plus the drop, and its mean over a cycle is a closed-form function of the peak and that threshold. The torque and heat follow from the same waveform, so the ledger still closes.
@@ -164,6 +164,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M7b: Peak-charging rectifier** (2026-09-27). The capacitor charges from the D9 sine through a full-wave rectifier with its drop and the coil's resistance, conducting only near the peaks, so it charges toward the peak less the drop. The mean current, its mean square, and the power drawn have closed forms over a cycle (`src/sim/rectifier.ts`), which both modes use through `coilCurrents`. A test integrates all three over a turn of the drawn waveform, and another integrates the circuit with its ripple, 10 mV, which moves the mean by 0.3 mV. Averaged mode solves its regulated and free balances over the rectifier's conduction angle with an Illinois false-position solver (`src/sim/solve.ts`), at 3 µs and 5 µs a step. The capacitor settles at 1.34 V at 8 rev/s (was 0.80 V), and the IC browns out at 4.275 rev/s (was 6.44). `IC_START_V` rose from 0.75 V to 1.0 V, because at 0.75 V the IC restarted 158 times after brownout. The regulator's gains were retuned to (0.03, 0.03, 0.005) by rerunning D6's grid search, because the old ones locked in 5.5 s. D4, D5, D6, D7, D8, D9, D12, **Model predictions**, **Energy budget**, and **Plausibility check** are rewritten from the new balance, and the known gap is closed. D12's open question is answered: the capacitor, not the brake, makes a knock back swing further than one forward. Decision 37, and amendments to 6, 20, 23, and 36.
 
 - **M7: `loop` widget** (2026-09-27). The whole movement at full wind in detailed mode, regulated, opening locked on the steady 11.2% duty. The glide wheel is drawn as the reference sees it, turned by the phase error: locked, it stands still with its north pole under the coil; knocked, it swings away and back. A scope traces the last 8 s of speed, phase error, and brake duty. "Knock +2 rev/s" and "Knock −2 rev/s" apply the nominal shock: the phase error swings +44.6° to +55.6° or −56.4° to −67.3°, depending on where in the reference period the knock lands, and lock returns within 3.0 s. The Regulation toggle opens the coil and the wheel runs away toward 30.6 rev/s, the phase error growing 22.6 turns a second; back on, the reference restarts from the wheel as at a power-on, and the loop relocks (4.75 s after 3 s off) while the hands keep what they gained. Readouts give speed, phase error, duty, brake torque, time in lock, the hands against true time, and the wind. Still frames run six seconds of the response at once. PHYSICS.md gains D12 and five predictions, with no new parameter; `tests/sim/disturbance.test.ts` gains the knock's swing over the reference period. `placeLabels` moved to `widgets/shared/labels.ts`. Decision 36.
 

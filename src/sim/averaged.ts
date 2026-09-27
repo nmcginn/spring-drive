@@ -5,7 +5,7 @@
 // The model is quasi-steady. Everything detailed mode resolves inside a
 // second settles far faster than the spring's torque changes: the glide
 // wheel's speed within a few mechanical time constants (0.625 s), the
-// capacitor within a few RC (10 ms), the regulator within a lock (about 4 s).
+// capacitor within about 0.1 s, the regulator within a lock (about 4 s).
 // So over each step the glide wheel turns at the speed where its torques
 // balance, and the capacitor sits where its currents balance, given the
 // spring's torque, the IC's state, and where the wheel is against the
@@ -24,9 +24,11 @@
 // which the ledger does not book; see decision 23 for why that is small.
 
 import { capEnergyJ } from './power.ts';
-import { SINE_MEAN_SQUARE_TO_MEAN_SQUARED, emfV, maxBrakeTorqueNm } from './generator.ts';
+import { SINE_MEAN_SQUARE_TO_MEAN_SQUARED, SINE_PEAK_TO_MEAN, emfV, maxBrakeTorqueNm, peakEmfV } from './generator.ts';
 import { mainspringEnergyJ, mainspringTorqueNm, fullWindAngleRad, windBarrel } from './mainspring.ts';
 import { referenceHz } from './quartz.ts';
+import { conductionAngleForShape, conductionShape, rectifierCycleAtAngle } from './rectifier.ts';
+import { solveDecreasing } from './solve.ts';
 import { breakawayTorqueNm, frictionMinimumOmegaRadS, frictionTorqueNm } from './rotor.ts';
 import { reflectedDriveTorqueNm } from './train.ts';
 import { phaseErrorRad, validateParams } from './detailed.ts';
@@ -97,32 +99,102 @@ export function meanDriveTorqueNm(barrelAngleRad: number, turnedRad: number, par
   return (params.trainEfficiency * releasedJ) / turnedRad;
 }
 
+// The capacitor's balance with the IC running and the coil charging it for
+// the unshorted (1 − d) of the time: (1 − d)·V·ī = P, where ī is the
+// rectifier's mean current over a cycle (`rectifier.ts`). At a given speed it
+// has two roots when it has any, and the upper one is stable: above it the
+// IC draws more than the coil gives and the capacitor falls back, below it
+// the reverse. The rectifier's conduction angle α, where sin α = (V + V_d)/E
+// for a peak E, parameterises both roots, and makes each balance below a
+// search over one variable with everything else in closed form (D7).
+
+/** The capacitor's balance at a fixed peak `peakV`, as a function of α: V, the rectifier's cycle, and the power V·ī. */
+function balanceAtPeak(alphaRad: number, peakV: number, params: SimParams) {
+  const cycle = rectifierCycleAtAngle(peakV, alphaRad, params.coilResistanceOhm);
+  const capVoltageV = peakV * Math.sin(alphaRad) - params.rectifierDropV;
+  return { capVoltageV, cycle, capPowerW: capVoltageV * cycle.meanA };
+}
+
+/**
+ * At a fixed peak, the α where V·ī is largest, the join between the two
+ * roots, rad. From d(V·ī)/du = ī + V·dī/du, with dī/du = −2(π/2 − α)/(πR):
+ * it is where E·cos α = (2u − V_d)·(π/2 − α). V·ī rises to it and falls after.
+ */
+function capPowerPeakAngleRad(peakV: number, params: SimParams): number {
+  const lo = peakV > params.rectifierDropV ? Math.asin(params.rectifierDropV / peakV) : Math.PI / 2;
+  return solveDecreasing((a) => capPowerSlope(a, peakV, params), lo, Math.PI / 2);
+}
+
+/** d(V·ī)/du at a fixed peak, times πR/2: positive below the join, negative above. */
+function capPowerSlope(alphaRad: number, peakV: number, params: SimParams): number {
+  const u = peakV * Math.sin(alphaRad);
+  return peakV * Math.cos(alphaRad) - (2 * u - params.rectifierDropV) * (Math.PI / 2 - alphaRad);
+}
+
 /**
  * Where the capacitor settles with the IC running and the coil charging it
- * for the unshorted (1 − duty) of the time, V, or null if it cannot hold the
- * IC's power at all. From (1 − d)·(e − V_d − V)/R = P/V: the upper root,
- * which is the stable one.
+ * for the unshorted (1 − duty) of the time, V, or null if the coil cannot
+ * hold the IC's power at all: the upper root of (1 − d)·V·ī = P.
  */
 export function steadyCapVoltageV(omegaRadS: number, duty: number, params: SimParams): number | null {
   if (duty >= 1) return null;
-  const a = emfV(omegaRadS, params) - params.rectifierDropV;
-  const rp = (params.coilResistanceOhm * params.icPowerW) / (1 - duty);
-  const disc = a * a - 4 * rp;
-  if (a <= 0 || disc < 0) return null;
-  return (a + Math.sqrt(disc)) / 2;
+  const peakV = peakEmfV(omegaRadS, params);
+  if (peakV <= params.rectifierDropV) return null;
+  const needW = params.icPowerW / (1 - duty);
+  const top = capPowerPeakAngleRad(peakV, params);
+  if (balanceAtPeak(top, peakV, params).capPowerW < needW) return null;
+  const alpha = solveDecreasing((a) => balanceAtPeak(a, peakV, params).capPowerW - needW, top, Math.PI / 2);
+  return balanceAtPeak(alpha, peakV, params).capVoltageV;
+}
+
+/**
+ * The capacitor's balance with the brake off, as a function of α: the
+ * capacitor voltage and the speed at which it holds. From
+ * V·2(V + V_d)·h(α)/(πR) = P, V·(V + V_d) = K = πRP/(2·h(α)), a quadratic in
+ * V; then the peak is (V + V_d)/sin α, and the speed follows from the peak.
+ */
+function balanceAtAngle(alphaRad: number, params: SimParams): { capVoltageV: number; omegaRadS: number; k: number } {
+  const vd = params.rectifierDropV;
+  const k = (Math.PI * params.coilResistanceOhm * params.icPowerW) / (2 * conductionShape(alphaRad));
+  const capVoltageV = (Math.sqrt(vd * vd + 4 * k) - vd) / 2;
+  const peakV = (capVoltageV + vd) / Math.sin(alphaRad);
+  return { capVoltageV, omegaRadS: peakV / (SINE_PEAK_TO_MEAN * params.generatorKeVSRad), k };
+}
+
+/**
+ * Along the balance, speed falls with α and then rises: d ln ω/dα = u′/u −
+ * cot α, with u′ = K·cot²α/(h·(2V + V_d)). This is positive while it falls,
+ * negative once it rises. The upper root is where it rises.
+ */
+function balanceSpeedFalling(alphaRad: number, params: SimParams): number {
+  const vd = params.rectifierDropV;
+  const { capVoltageV: v, k } = balanceAtAngle(alphaRad, params);
+  return conductionShape(alphaRad) * (v + vd) * (2 * v + vd) - k * (Math.cos(alphaRad) / Math.sin(alphaRad));
+}
+
+/**
+ * The lowest α on the upper root, brake off, where the IC still runs: the α
+ * where the capacitor reaches brownout, or, if that is on the lower root,
+ * the join between the roots, the slowest speed with any balance at all.
+ * Along the upper root, speed and capacitor voltage both rise with α.
+ */
+function upperRootLowAngleRad(params: SimParams): number {
+  const vb = params.icBrownoutV;
+  const vd = params.rectifierDropV;
+  const brownoutRad = conductionAngleForShape(
+    (Math.PI * params.coilResistanceOhm * params.icPowerW) / (2 * vb * (vb + vd)),
+  );
+  if (!(balanceSpeedFalling(brownoutRad, params) > 0)) return brownoutRad;
+  return solveDecreasing((a) => balanceSpeedFalling(a, params), brownoutRad, Math.PI / 2);
 }
 
 /**
  * The slowest speed at which the running IC stays above brownout with no
- * brake, rad/s. Below it the capacitor settles under the brownout voltage.
+ * brake, rad/s. Below it the capacitor settles under the brownout voltage,
+ * or cannot hold the IC's power at all.
  */
 export function icSustainOmegaRadS(params: SimParams): number {
-  const vb = params.icBrownoutV;
-  const rp = params.coilResistanceOhm * params.icPowerW;
-  // Brownout is on the upper root of the capacitor's balance when V_b² ≥ RP;
-  // otherwise the IC fails first where the two roots meet, at V = √(RP).
-  const aMin = vb * vb >= rp ? vb + rp / vb : 2 * Math.sqrt(rp);
-  return (aMin + params.rectifierDropV) / params.generatorKeVSRad;
+  return balanceAtAngle(upperRootLowAngleRad(params), params).omegaRadS;
 }
 
 /**
@@ -153,33 +225,83 @@ function balanceOmegaRadS(
 /**
  * The regulated operating point at the reference speed: the brake duty and
  * capacitor voltage that together absorb the spring's excess torque and keep
- * the IC fed, or null if no duty in [0, 1) does both. Solving the torque
- * balance for duty and substituting into the capacitor's balance gives a
- * quadratic in V: c·V² − (c·a − g)·V + (R·P − g·a) = 0, with B the full
- * brake torque, c = 1 − excess/B, and g = k_e·P/B (PHYSICS.md, D7).
+ * the IC fed, or null if no duty in [0, 1) does both (PHYSICS.md, D7). The
+ * peak is fixed by the speed, so α fixes V, the rectifier's mean current ī,
+ * and its power. The capacitor's balance then fixes the duty, 1 − d = P/(V·ī),
+ * and what is left is the torque balance, d·B + (1 − d)·p̄/ω₀ = excess, with
+ * B the full brake and p̄ the power the charging path draws over a cycle. Up
+ * the upper root the duty falls as α rises, so the torque the coil takes
+ * falls too, and the solver finds the one point.
  */
 export function regulatedPoint(
   driveNm: number,
   params: SimParams,
-): { duty: number; capVoltageV: number; chargeA: number } | null {
+): { duty: number; capVoltageV: number; chargeA: number; chargeOnMeanSquareA2: number } | null {
   const omega = referenceOmegaRadS(params);
-  const ke = params.generatorKeVSRad;
+  const peakV = peakEmfV(omega, params);
+  const vd = params.rectifierDropV;
+  const P = params.icPowerW;
   const fullBrakeNm = maxBrakeTorqueNm(omega, params);
   const excessNm = driveNm - frictionTorqueNm(omega, params);
-  const c = 1 - excessNm / fullBrakeNm;
-  if (c <= 0) return null;
-  const g = (ke * params.icPowerW) / fullBrakeNm;
-  const a = emfV(omega, params) - params.rectifierDropV;
-  const rp = params.coilResistanceOhm * params.icPowerW;
-  const b = c * a - g;
-  const disc = b * b - 4 * c * (rp - g * a);
-  if (disc < 0) return null;
-  const capVoltageV = (b + Math.sqrt(disc)) / (2 * c);
-  if (capVoltageV < params.icBrownoutV) return null;
-  const chargeA = params.icPowerW / capVoltageV;
-  const duty = (excessNm - ke * chargeA) / fullBrakeNm;
-  if (duty < 0 || duty >= 1) return null;
-  return { duty, capVoltageV, chargeA };
+  if (excessNm <= 0 || params.icBrownoutV + vd >= peakV) return null;
+  // The capacitor's lowest voltage is brownout, unless the join between its
+  // roots is higher; only search for the join when brownout is below it,
+  // where V·ī still rises with α.
+  const brownoutRad = Math.asin((params.icBrownoutV + vd) / peakV);
+  const lowRad = capPowerSlope(brownoutRad, peakV, params) > 0 ? capPowerPeakAngleRad(peakV, params) : brownoutRad;
+  const pointAt = (a: number) => {
+    const { capVoltageV, cycle, capPowerW } = balanceAtPeak(a, peakV, params);
+    const unshorted = P / capPowerW;
+    // The torque balance, multiplied through by V·ī so that it stays finite,
+    // and smooth, all the way to α = π/2, where ī falls to zero. That is what
+    // lets the solver converge in a few steps rather than bisect.
+    const balanceW = capPowerW * (fullBrakeNm - excessNm) - P * (fullBrakeNm - cycle.meanPowerW / omega);
+    return { duty: 1 - unshorted, capVoltageV, cycle, balanceW };
+  };
+  const low = pointAt(lowRad);
+  if (!(low.balanceW > 0) || low.duty >= 1) return null;
+  const at = pointAt(solveDecreasing((a) => pointAt(a).balanceW, lowRad, Math.PI / 2));
+  if (!(at.duty >= 0) || at.duty >= 1) return null;
+  return {
+    duty: at.duty,
+    capVoltageV: at.capVoltageV,
+    chargeA: P / at.capVoltageV,
+    chargeOnMeanSquareA2: at.cycle.meanSquareA2,
+  };
+}
+
+/**
+ * The free-running balance with the IC on and the brake off: the speed where
+ * the drive meets friction plus the charging path's torque, p̄/ω, with the
+ * capacitor on its upper root, or null if there is none above
+ * `omegaFloorRadS`. The search runs up the upper root in α, which carries
+ * both the speed and the capacitor with it in closed form (`balanceAtAngle`).
+ */
+function chargingBalance(
+  driveNm: number,
+  omegaFloorRadS: number,
+  params: SimParams,
+): { omegaRadS: number; capVoltageV: number; meanA: number; meanSquareA2: number; meanPowerW: number } | null {
+  const pointAt = (a: number) => {
+    const { capVoltageV, omegaRadS } = balanceAtAngle(a, params);
+    const cycle = rectifierCycleAtAngle(peakEmfV(omegaRadS, params), a, params.coilResistanceOhm);
+    return { omegaRadS, capVoltageV, cycle };
+  };
+  // Drive less load. The speed runs off to infinity as α nears π/2, as
+  // h(α)^(−1/2); scaling by √h keeps this finite and smooth there, which is
+  // what lets the solver converge in a few steps rather than bisect.
+  const balanceNm = (a: number) => {
+    const { omegaRadS, cycle } = pointAt(a);
+    const loadNm = frictionTorqueNm(omegaRadS, params) + (omegaRadS > 0 ? cycle.meanPowerW / omegaRadS : 0);
+    return (driveNm - loadNm) * Math.sqrt(conductionShape(a));
+  };
+  let lowRad = upperRootLowAngleRad(params);
+  if (pointAt(lowRad).omegaRadS < omegaFloorRadS) {
+    lowRad = solveDecreasing((a) => omegaFloorRadS - pointAt(a).omegaRadS, lowRad, Math.PI / 2);
+  }
+  if (!(balanceNm(lowRad) > 0)) return null;
+  const { omegaRadS, capVoltageV, cycle } = pointAt(solveDecreasing(balanceNm, lowRad, Math.PI / 2));
+  return { omegaRadS, capVoltageV, ...cycle };
 }
 
 interface PointInput {
@@ -205,7 +327,6 @@ function icOnPoint(
   running: boolean,
 ): OperatingPoint | null {
   const omegaRef = referenceOmegaRadS(params);
-  const ke = params.generatorKeVSRad;
   const R = params.coilResistanceOhm;
   const P = params.icPowerW;
   const phase = s.phaseErrorRad;
@@ -261,7 +382,7 @@ function icOnPoint(
         untilS: Infinity,
         event: 'none',
         coilW:
-          (R * reg.chargeA * reg.chargeA) / (1 - reg.duty) + (reg.duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * e * e) / R,
+          (1 - reg.duty) * R * reg.chargeOnMeanSquareA2 + (reg.duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * e * e) / R,
         rectifierW: params.rectifierDropV * reg.chargeA,
         icW: P,
       };
@@ -270,17 +391,10 @@ function icOnPoint(
 
   // No braking: the brake is disabled, the wheel is behind, or the spring
   // cannot reach the target. The coil only charges the capacitor.
-  const omegaLow = Math.max(icSustainOmegaRadS(params), frictionMinimumOmegaRadS(params));
-  const omega = balanceOmegaRadS(
-    driveNm,
-    omegaLow,
-    (w) => frictionTorqueNm(w, params) + (ke * P) / (steadyCapVoltageV(w, 0, params) ?? Infinity),
-    params,
-  );
-  if (omega === null) return null;
-  const capVoltageV = steadyCapVoltageV(omega, 0, params);
-  if (capVoltageV === null || capVoltageV < params.icBrownoutV) return null;
-  const chargeA = P / capVoltageV;
+  const balance = chargingBalance(driveNm, frictionMinimumOmegaRadS(params), params);
+  if (balance === null || balance.capVoltageV < params.icBrownoutV) return null;
+  const omega = balance.omegaRadS;
+  const capVoltageV = balance.capVoltageV;
   const catchingUp = controls.brakeEnabled && phase < 0 && omega > omegaRef;
   const untilS = catchingUp ? -phase / (omega - omegaRef) : Infinity;
   return {
@@ -293,8 +407,8 @@ function icOnPoint(
     capDraining: false,
     untilS,
     event: catchingUp ? 'phase-zero' : 'none',
-    coilW: R * chargeA * chargeA,
-    rectifierW: params.rectifierDropV * chargeA,
+    coilW: R * balance.meanSquareA2,
+    rectifierW: params.rectifierDropV * balance.meanA,
     icW: P,
   };
 }
@@ -315,14 +429,15 @@ export function operatingPoint(
     if (on) return on;
   }
 
-  // The IC is off. With no load on it, the capacitor charges to the EMF less
-  // the rectifier's drop and then holds, since only the IC could drain it.
+  // The IC is off. With no load on it, the capacitor charges to the EMF's
+  // peak less the rectifier's drop and then holds, since only the IC could
+  // drain it.
   const stalled = !running && driveNm <= breakawayTorqueNm(params);
   const omega = stalled
     ? null
     : balanceOmegaRadS(driveNm, frictionMinimumOmegaRadS(params), (w) => frictionTorqueNm(w, params), params);
   const capVoltageV =
-    omega === null ? s.capVoltageV : Math.max(s.capVoltageV, emfV(omega, params) - params.rectifierDropV);
+    omega === null ? s.capVoltageV : Math.max(s.capVoltageV, peakEmfV(omega, params) - params.rectifierDropV);
 
   if (omega !== null && capVoltageV >= params.icStartV) {
     // Power-on: the counters start from zero, so the reference begins

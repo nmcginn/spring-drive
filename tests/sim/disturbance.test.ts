@@ -53,11 +53,17 @@ describe('test 6: disturbance recovery', () => {
     });
     expect(samples.filter((s) => s.timeS >= SHOCK_AT_S).every((s) => s.icOn)).toBe(true);
     // Not a PHYSICS.md prediction, only a bound: a stop needs a full spin-up
-    // (about 2 s) before the phase can be repaid; it measured 3.25 s.
-    expect(lockTimeS(samples, P, SHOCK_AT_S)! - SHOCK_AT_S).toBeLessThanOrEqual(5);
+    // (about 2 s) before the phase can be repaid. It measured 3.25 s before
+    // M7b, and 6.125 s since (D12): catching up, the wheel overshoots to
+    // 11.6 rev/s and charges the capacitor to 1.94 V, where the rectifier no
+    // longer conducts at 8 rev/s. When the IC has drained it back to 1.34 V,
+    // about 5 s later, the charging load returns in a step, which knocks the
+    // phase about 4° off, past lock's 3.6°, for another second. 7 s bounds
+    // that; widened from 5 s in M7b, for that reason.
+    expect(lockTimeS(samples, P, SHOCK_AT_S)! - SHOCK_AT_S).toBeLessThanOrEqual(7);
   });
 
-  it('swings the phase error, at full wind, +44.6° to +55.6° for a knock forward and −56.4° to −67.3° for one back, by where in the reference period it lands', () => {
+  it('swings the phase error, at full wind, +34.9° to +46.7° for a knock forward and −51.8° to −65.9° for one back, by where in the reference period it lands', () => {
     // PHYSICS.md, D12: the loop widget's knock. The IC acts only at ticks, so
     // a knock just after one goes unanswered for most of a period and swings
     // furthest. Sixteen landing points, every 32 steps across a period, from
@@ -79,12 +85,46 @@ describe('test 6: disturbance recovery', () => {
     const forward = peaksDeg(1);
     const back = peaksDeg(-1);
     // To the 0.1° PHYSICS.md states them to.
-    expect(Math.min(...forward)).toBeCloseTo(44.6, 1);
-    expect(Math.max(...forward)).toBeCloseTo(55.6, 1);
-    expect(Math.min(...back)).toBeCloseTo(56.4, 1);
-    expect(Math.max(...back)).toBeCloseTo(67.3, 1);
+    expect(Math.min(...forward)).toBeCloseTo(34.9, 1);
+    expect(Math.max(...forward)).toBeCloseTo(46.7, 1);
+    expect(Math.min(...back)).toBeCloseTo(51.8, 1);
+    expect(Math.max(...back)).toBeCloseTo(65.9, 1);
     // The largest swing is from a knock landing right on a tick.
     expect(forward[0]).toBe(Math.max(...forward));
     expect(back[0]).toBe(Math.max(...back));
+  });
+
+  it('swings the same way both directions with the charging path taken out: the capacitor is what makes a knock back swing further', () => {
+    // PHYSICS.md, D12. The rectifier's drop is raised to 100 V, so it never
+    // conducts, and the capacitor to 1 F, so the IC runs regardless. Each
+    // variant settles for 20 s from the full-wind handover, and is knocked on
+    // a tick; the peak is taken at every step over the next two seconds.
+    const ON = { brakeEnabled: true };
+    const handover = detailedFromAveraged(createAveragedState(P, { windFraction: 1 }), P);
+    const swingsDeg = (params: typeof P, deltaRadS: number) => {
+      const settled = advanceSteps(handover, params, ON, 20 * 4096);
+      return [1, -1].map((sign) => {
+        let s = applyShock(settled, sign * deltaRadS, params);
+        let peak = 0;
+        for (let i = 0; i < 2 * 4096; i++) {
+          s = advanceSteps(s, params, ON, 1);
+          peak = Math.max(peak, sign * phaseErrorRad(s, params));
+        }
+        return (peak * 180) / Math.PI;
+      });
+    };
+    const noCharging = { ...P, rectifierDropV: 100, capacitanceF: 1 };
+    // To the 0.1° PHYSICS.md states. Without the charging path: +67.7° and
+    // −68.4°, and ±17.0° a quarter the size, about 1% apart at most.
+    const [forward, back] = swingsDeg(noCharging, SHOCK_DELTA_OMEGA_RAD_S);
+    expect(forward).toBeCloseTo(67.7, 1);
+    expect(back).toBeCloseTo(68.4, 1);
+    const [smallForward, smallBack] = swingsDeg(noCharging, SHOCK_DELTA_OMEGA_RAD_S / 4);
+    expect(smallForward).toBeCloseTo(17.0, 1);
+    expect(smallBack).toBeCloseTo(17.0, 1);
+    // With it: +12.2° and −14.5° a quarter the size (the full size is above).
+    const [modelForward, modelBack] = swingsDeg(P, SHOCK_DELTA_OMEGA_RAD_S / 4);
+    expect(modelForward).toBeCloseTo(12.2, 1);
+    expect(modelBack).toBeCloseTo(14.5, 1);
   });
 });

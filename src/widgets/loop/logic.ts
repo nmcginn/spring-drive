@@ -53,11 +53,11 @@ export const STILL_RESPONSE_S = 6;
  *
  * - Speed, the target ± 4 rev/s, 4 to 12 rev/s: a ±2 rev/s knock is a
  *   quarter of the strip. The unregulated wheel's 30 rev/s is off the top.
- * - Phase error, ±90°: a knock at full wind swings it at most +55.6° or
- *   −67.3°, depending on when it lands (PHYSICS.md, D12). A relock after regulation comes back, and any time
+ * - Phase error, ±90°: a knock at full wind swings it at most +46.7° or
+ *   −65.9°, depending on when it lands (PHYSICS.md, D12). A relock after regulation comes back, and any time
  *   with regulation off, runs off it.
  * - Brake duty, 0 to 30 %: the steady 11.2 % a little over a third of the
- *   way up, and a knock's 5 % to 16 % swing clear of both edges. Full brake,
+ *   way up, and a knock's 3 % to 17 % swing clear of both edges. Full brake,
  *   as the loop pulls a runaway back, is off the top.
  */
 export const SPEED_SCALE_HALF_REV_S = 4;

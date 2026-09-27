@@ -17,13 +17,15 @@ src/
     mainspring.ts           Torque-curve interpolation, exact stored energy, winding with a slipping bridle.
     train.ts                Barrel torque reflected to the glide wheel; barrel angle per rotor angle.
     rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal; the friction minimum.
-    generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat (the brake is the sine's mean-square heat, decision 35); the instantaneous EMF waveform (D9).
+    generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat (the brake is the sine's mean-square heat, decision 35; the charging is the rectifier's, decision 37); the instantaneous EMF waveform (D9).
+    rectifier.ts            The charging path over one cycle of the sine: the conduction angle, and the mean current, mean square, and power in closed form (D5, decision 37).
+    solve.ts                Bracketed root finding (Illinois false position) for averaged mode's balances.
     power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
     quartz.ts               The 32,768 Hz divider chain, the integer-counted reference phase, and each stage's level as a bit of the cycle count (D11).
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
     detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, winding, realignment, and runScenario.
     spindown.ts             The glide wheel let go with the spring out of the way: friction and the duty-averaged coil brake, stepped as in detailed mode, with an exact energy ledger (D10).
-    averaged.ts             Quasi-steady mode for hours and days: five regimes, exact event times, winding, runAveragedScenario, and the handover to and from detailed mode.
+    averaged.ts             Quasi-steady mode for hours and days: five regimes, their balances solved over the rectifier's conduction angle (D7), exact event times, winding, runAveragedScenario, and the handover to and from detailed mode.
     metrics.ts              Lock: its definition and the time it is gained. Rate error in s/day.
     rng.ts                  Seeded Mulberry32, the sim's only randomness.
     shocks.ts               Seeded random shock schedules.
@@ -64,7 +66,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists the widget still to come (M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
+The target in `PLAN.md` also lists the widget still to come (M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
 
 ## The rule: physics, runtime, and widgets stay separate
 

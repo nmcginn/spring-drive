@@ -12,13 +12,13 @@ import { P, revS, run } from './helpers.ts';
 // physics that moves one must move PHYSICS.md with it.
 
 describe('test 2: lock', () => {
-  it('locks to 8 rev/s 3.875 s after starting from rest at full wind, and holds it', () => {
+  it('locks to 8 rev/s 4.0 s after starting from rest at full wind, and holds it', () => {
     const { samples } = run({ durationS: 30 });
-    expect(lockTimeS(samples, P)).toBe(3.875);
+    expect(lockTimeS(samples, P)).toBe(4.0);
   });
 
   it.each([
-    [0.5, 4.125],
+    [0.5, 3.875],
     [0.03, 4.0],
   ])('locks from rest at %s of full wind in %s s', (wind, seconds) => {
     expect(lockTimeS(run({ windFraction: wind, durationS: 30 }).samples, P)).toBe(seconds);
@@ -35,23 +35,27 @@ describe('test 2: lock', () => {
 
   it.each([
     [1, 0.112],
-    [0.5, 0.071],
-    [0.03, 0.03],
+    [0.5, 0.0713],
+    [0.03, 0.0306],
   ])('settles at %s of full wind to the steady duty PHYSICS.md derives, %s', (wind, duty) => {
     const { final } = run({ windFraction: wind, durationS: 20 });
-    // 2%: the derived duty is rounded to three decimals in PHYSICS.md, which
-    // is up to 1.7% of 0.03; the barrel unwinding in 20 s moves it by under 0.1%.
+    // 2%: the derived duty is rounded to three significant figures in
+    // PHYSICS.md, which is up to 0.5% of it, and the controller is still
+    // repaying the last of its lock at 20 s: at low wind the duty reads 0.7%
+    // under the steady value (measured). The barrel unwinding in 20 s moves
+    // it by under 0.1%.
     expect(Math.abs(final.regulator.duty / duty - 1)).toBeLessThan(0.02);
   });
 
-  it('holds the capacitor at the 0.7956 V PHYSICS.md derives for 8 rev/s', () => {
+  it('holds the capacitor at the 1.3409 V PHYSICS.md derives for 8 rev/s at half wind', () => {
     const { final } = run({ windFraction: 0.5, durationS: 20 });
-    // 0.5 mV: the derivation rounds to 0.1 mV, and the steady duty it uses
-    // (0.888 off) is itself rounded.
-    expect(Math.abs(final.capVoltageV - 0.7956)).toBeLessThan(5e-4);
+    // D5 and D7. 0.1 mV: the rounding PHYSICS.md shows. Detailed mode holds
+    // the capacitor fixed over each step as averaged mode does over a cycle,
+    // so the two agree to well inside it (measured: to 10⁻⁷ V).
+    expect(Math.abs(final.capVoltageV - 1.3409)).toBeLessThan(1e-4);
   });
 
-  it('overshoots while locking to a peak of 11.17 rev/s at full wind, but never runs away', () => {
+  it('overshoots while locking to a peak of 10.93 rev/s at full wind, but never runs away', () => {
     // Sampled every step: the peak falls between reference ticks, and sampled
     // only at the ticks it reads about 0.3 rev/s low (PHYSICS.md once said 10.9).
     const peak = Math.max(
@@ -59,7 +63,7 @@ describe('test 2: lock', () => {
     );
     // Deterministic, so half a unit in the last digit PHYSICS.md shows. The
     // free-running wheel would pass 30.
-    expect(Math.abs(peak - 11.17)).toBeLessThan(0.005);
+    expect(Math.abs(peak - 10.93)).toBeLessThan(0.005);
   });
 
   it('cannot lock from a fully run-down spring: the wheel never moves and the IC never starts', () => {

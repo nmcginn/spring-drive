@@ -189,12 +189,14 @@ test.describe('runaway', () => {
     await press(page.getByRole('button', { name: 'Wind the mainspring fully and set the hands to 12:00' }));
     await expect(readout(page, RUNAWAY, 'Mainspring wound')).toHaveText(/^(100\.0|99\.9)\u202f%$/);
     // Unbraked at full wind the wheel settles at 30.61 rev/s (PHYSICS.md,
-    // test 1) with a 0.625 s time constant, so within a few seconds of page
-    // time it is past 30.
+    // test 1). It has a 0.625 s time constant, but charging the capacitor
+    // slows the last of the approach (D12), so it is past 29 about 4 s in and
+    // near 30.6 only after 15 s. The hands run 3.63× to 3.83× real time over
+    // that stretch.
     const speed = async () => parseFloat((await readout(page, RUNAWAY, 'Glide wheel speed').textContent()) ?? '');
-    await expect.poll(speed, { timeout: 10_000 }).toBeGreaterThan(30);
+    await expect.poll(speed, { timeout: 10_000 }).toBeGreaterThan(29);
     expect(await speed()).toBeLessThan(31);
-    await expect(readout(page, RUNAWAY, 'Hands run at')).toHaveText(/^3\.8\d× real time$/);
+    await expect(readout(page, RUNAWAY, 'Hands run at')).toHaveText(/^3\.[678]\d× real time$/);
     await snap(page, 'runaway');
   });
 
