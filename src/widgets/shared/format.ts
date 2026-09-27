@@ -43,7 +43,26 @@ export function formatPercent(fraction: number, decimals = 1): string {
   return withUnit(fraction * 100, decimals, '%');
 }
 
-/** A playback rate against real time: "1×", or "1/8×" for slow motion, which is how people say it. */
+/** A playback rate against real time: "1×", or "1/8×" for slow motion, which is how people say it, and "1/4,096×" for very slow. */
 export function formatPlayback(rate: number): string {
-  return rate >= 1 ? formatRatio(rate, 0) : `1/${Math.round(1 / rate)}×`;
+  return rate >= 1 ? formatRatio(rate, 0) : `1/${formatCount(1 / rate)}×`;
+}
+
+/** A whole number with commas between thousands, as the prose writes them: "32,768". */
+export function formatCount(n: number): string {
+  const whole = Math.round(n);
+  const digits = String(Math.abs(whole)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return whole < 0 ? `${MINUS}${digits}` : digits;
+}
+
+/**
+ * A short span of time in the unit that keeps it readable, to three
+ * significant figures: "−1.00 s", "−15.6 ms", "−244 µs".
+ */
+export function formatShortTime(seconds: number): string {
+  const abs = Math.abs(seconds);
+  const [scale, unit] = abs >= 1 || abs === 0 ? [1, 's'] : abs >= 1e-3 ? [1e3, 'ms'] : [1e6, 'µs'];
+  const v = seconds * scale;
+  const decimals = Math.max(0, 2 - Math.floor(Math.log10(Math.max(Math.abs(v), 1))));
+  return withUnit(v, decimals, unit);
 }

@@ -12,12 +12,14 @@ const HERO = '.widget-hero-glide';
 const RUNAWAY = '.widget-runaway';
 const GENERATOR = '.widget-generator';
 const LENZ = '.widget-lenz-brake';
+const QUARTZ = '.widget-quartz';
 
 const WIDGETS = [
   { name: 'hero-glide', selector: HERO, playName: 'the two watches' },
   { name: 'runaway', selector: RUNAWAY, playName: 'the runaway glide wheel' },
   { name: 'generator', selector: GENERATOR, playName: 'the generator' },
   { name: 'lenz-brake', selector: LENZ, playName: 'the coil brake' },
+  { name: 'quartz', selector: QUARTZ, playName: 'the quartz divider' },
 ] as const;
 
 /** Bring a widget into view; lower widgets mount only as they near the viewport. */
@@ -390,6 +392,78 @@ test.describe('lenz-brake', () => {
     await press(letGo(page));
     await stopped(page);
     await snap(page, 'lenz-brake-dark');
+  });
+});
+
+test.describe('quartz', () => {
+  const slow = (page: Page) => page.getByRole('slider', { name: 'Slow the crystal down' });
+  const ticksGiven = async (page: Page) =>
+    parseInt(((await readout(page, QUARTZ, 'Reference ticks given').textContent()) ?? '').replace(/,/g, ''), 10);
+
+  test('opens slowed 64 times, with the crystal and the reference as the model gives them there', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'quartz', QUARTZ);
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1/64× real time');
+    // PHYSICS.md, D11: 32,768 Hz ÷ 64, and 0.125 s × 64.
+    await expect(readout(page, QUARTZ, 'Crystal, on screen')).toHaveText('512\u202fHz');
+    await expect(readout(page, QUARTZ, 'A reference tick every')).toHaveText('8\u202fs');
+    await expect(readout(page, QUARTZ, 'Counter, 0 to 4,095')).toHaveText(/^[\d,]+\u202fcycles$/);
+    await expect(slow(page)).toHaveAttribute('aria-valuetext', '1/64 of real time');
+    await expectTicking(page, QUARTZ);
+    await snap(page, 'quartz');
+  });
+
+  test('the slow-down slider, its primary control, runs from real time to the crystal swinging at 8 Hz', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'quartz', QUARTZ);
+    // All the way to real time: the reference ticks eight times a second.
+    await pressAt(slow(page), 0.01);
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1× real time');
+    await expect(readout(page, QUARTZ, 'Crystal, on screen')).toHaveText('32,768\u202fHz');
+    await expect(readout(page, QUARTZ, 'A reference tick every')).toHaveText('0.125\u202fs');
+    const before = await ticksGiven(page);
+    await expect.poll(() => ticksGiven(page)).toBeGreaterThan(before + 4);
+    await snap(page, 'quartz-real-time');
+
+    // All the way down: the crystal itself, slowed 4,096 times.
+    await pressAt(slow(page), 0.99);
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1/4,096× real time');
+    await expect(readout(page, QUARTZ, 'Crystal, on screen')).toHaveText('8\u202fHz');
+    await expect(readout(page, QUARTZ, 'A reference tick every')).toHaveText('8\u202fmin 32\u202fs');
+    await expectTicking(page, QUARTZ);
+    await snap(page, 'quartz-slowest');
+  });
+
+  test('steps with the arrow keys, a factor of two at a time', async ({ page }) => {
+    await open(page, 'quartz', QUARTZ);
+    await slow(page).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1/128× real time');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1/32× real time');
+    await page.keyboard.press('Home');
+    await expect(slow(page)).toHaveAttribute('aria-valuetext', 'real time');
+  });
+
+  test('under reduced motion, redraws the still frame at a new speed without animating', async ({ page, snap }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, 'quartz', QUARTZ);
+    await pressAt(slow(page), 0.99);
+    await expect(readout(page, QUARTZ, 'Playback')).toHaveText('1/4,096× real time');
+    await expectStill(page, QUARTZ);
+    await snap(page, 'quartz-reduced-motion-slowest');
+  });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'quartz', QUARTZ);
+    await expect.poll(() => ticks(page, QUARTZ)).toBeGreaterThan(30);
+    await snap(page, 'quartz-dark');
   });
 });
 

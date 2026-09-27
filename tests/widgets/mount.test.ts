@@ -4,6 +4,7 @@ import { createScheduler } from '../../src/runtime/scheduler.ts';
 import { mount as mountGenerator } from '../../src/widgets/generator/index.ts';
 import { mount as mountHero } from '../../src/widgets/hero-glide/index.ts';
 import { mount as mountLenz } from '../../src/widgets/lenz-brake/index.ts';
+import { mount as mountQuartz } from '../../src/widgets/quartz/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
 
@@ -21,6 +22,7 @@ const WIDGETS = [
   { id: 'runaway', mount: mountRunaway, className: 'widget-runaway' },
   { id: 'generator', mount: mountGenerator, className: 'widget-generator' },
   { id: 'lenz-brake', mount: mountLenz, className: 'widget-lenz-brake' },
+  { id: 'quartz', mount: mountQuartz, className: 'widget-quartz' },
 ] as const;
 
 function setup(w: (typeof WIDGETS)[number], options: { reducedMotion?: boolean } = {}) {
@@ -47,7 +49,12 @@ for (const w of WIDGETS) {
       expect(root().querySelector('canvas')?.getAttribute('role')).toBe('img');
       expect(root().querySelector('canvas')?.getAttribute('aria-label')).toBeTruthy();
       expect(root().querySelectorAll('.readouts dd').length).toBeGreaterThan(2);
-      expect(root().querySelectorAll('.controls button').length).toBeGreaterThan(1);
+      // The Play button, and at least one control of the widget's own: a
+      // button, or a slider, which is all the quartz widget needs.
+      expect(root().querySelectorAll('.controls .motion-button').length).toBe(1);
+      expect(root().querySelectorAll('.controls button:not(.motion-button), .controls input').length).toBeGreaterThan(
+        0,
+      );
     });
 
     it('puts a unit on every readout from the first frame', () => {
@@ -341,5 +348,69 @@ describe('lenz-brake: controls', () => {
     expect(values()).toContain('1/8× real time');
     slow.click();
     expect(values()).toContain('1× real time');
+  });
+});
+
+describe('quartz: controls', () => {
+  const quartz = WIDGETS[4];
+  const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
+  function drag(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('has a slow-down slider, its primary control, labelled and starting at 1/64 of real time', () => {
+    const { root } = setup(quartz);
+    const input = slider(root());
+    expect(input.closest('label')?.textContent).toBe('Slow the crystal down');
+    expect([input.min, input.max, input.step, input.value]).toEqual(['0', '12', '1', '6']);
+    expect(input.getAttribute('aria-valuetext')).toBe('1/64 of real time');
+  });
+
+  it('sets the speed from the slider, and the readouts follow, even while not animating', () => {
+    const { root, values } = setup(quartz);
+    drag(slider(root()), '12');
+    expect(values().slice(0, 3)).toEqual(['1/4,096× real time', '8\u202fHz', '8\u202fmin 32\u202fs']);
+    drag(slider(root()), '0');
+    expect(values().slice(0, 3)).toEqual(['1× real time', '32,768\u202fHz', '0.125\u202fs']);
+    expect(slider(root()).getAttribute('aria-valuetext')).toBe('real time');
+  });
+
+  it('counts the crystal on frames the scheduler gives it: a second at real time gives eight ticks', () => {
+    const { env, root, values } = setup(quartz);
+    drag(slider(root()), '0');
+    env.setVisible(root(), true);
+    // The first frame steps zero; the next 61 step a sixtieth of a second each.
+    env.frames(0, 62, FRAME_MS);
+    expect(values()[4]).toBe('8\u202fticks');
+  });
+
+  it('carries the count on across a change of speed, pause, and resume', () => {
+    const { env, scheduler, root, values } = setup(quartz);
+    drag(slider(root()), '0');
+    env.setVisible(root(), true);
+    // 31 steps of a sixtieth, clear of the tick at exactly half a second,
+    // which summed frames can land a hair either side of.
+    env.frames(0, 32, FRAME_MS);
+    expect(values()[4]).toBe('4\u202fticks');
+    scheduler.setGloballyPaused(true);
+    drag(slider(root()), '12');
+    expect(values()[4]).toBe('4\u202fticks');
+    scheduler.setGloballyPaused(false);
+    drag(slider(root()), '0');
+    env.frames(5000, 31, FRAME_MS);
+    // Half a second more (the frame after resuming steps zero): 1.017 s in all, 8.13 ticks.
+    expect(values()[4]).toBe('8\u202fticks');
+  });
+
+  it('survives a ten-minute frame gap as one clamped 0.1 s step', () => {
+    const { env, root, ticks, values } = setup(quartz);
+    drag(slider(root()), '0');
+    env.setVisible(root(), true);
+    env.frame(0);
+    env.frame(10 * 60 * 1000);
+    expect(ticks()).toBe(2);
+    // 0.1 s at real time is 3,276.8 cycles: no tick given yet.
+    expect(values().slice(3)).toEqual(['3,276\u202fcycles', '0\u202fticks']);
   });
 });

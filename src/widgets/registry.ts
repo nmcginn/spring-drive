@@ -9,4 +9,5 @@ export const WIDGETS: Readonly<Record<string, () => Promise<{ mount: Mount }>>> 
   runaway: () => import('./runaway/index.ts'),
   generator: () => import('./generator/index.ts'),
   'lenz-brake': () => import('./lenz-brake/index.ts'),
+  quartz: () => import('./quartz/index.ts'),
 };

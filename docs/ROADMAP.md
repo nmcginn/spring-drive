@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M5 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9.
-- Last session: 2026-09-27, M5: the `lenz-brake` widget, the coast in `src/sim/spindown.ts`, derivation D10, and the magnet and coil drawing shared with the generator (decision 33).
-- Open PRs waiting on review: M5.
-- Next up: M6 (`quartz`). M7 and M8 are eligible too; none of them needs M5's PR.
+- Current milestone: M6 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10.
+- Last session: 2026-09-27, M6: the `quartz` widget, each divider stage's level in `src/sim/quartz.ts`, derivation D11, and decision 34.
+- Open PRs waiting on review: M6.
+- Next up: M7 (`loop`). M8 is eligible too; neither needs M6's PR. The open question below is best settled before M7.
 
 ## Open questions for the maintainer
 
@@ -98,7 +98,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M6: `quartz` widget
 
-- [ ] **32,768 Hz divided down to the 8 Hz reference.**
+- [x] **32,768 Hz divided down to the 8 Hz reference.**
   *Needs:* M1.
   *Acceptance:* the widget done-when below.
 
@@ -148,6 +148,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M6: `quartz` widget** (2026-09-27). A logic analyser on the divider chain: thirteen rows, the crystal's 32,768 Hz at the top and each row below half the one above, down to the 8 Hz reference, scrolling past a "now" edge with a lamp for each stage's level. The primary control slows the crystal by powers of two, from real time, where only the 32, 16, and 8 Hz stages can be drawn and the reference ticks eight times a second, to 1/4,096, where the crystal itself swings at 8 Hz. Rows too fast to draw are shaded, not aliased, and a tuning-fork crystal swings beside the diagram, blurred until it is slow enough to follow. Dashed lines mark each counter rollover, where every stage falls at once: a reference tick. Readouts give the playback rate, the crystal's frequency on screen, how often a tick comes, the counter, and the ticks given. `src/sim/quartz.ts` gains each stage's level as a bit of the cycle count, the counter, and the tick count; PHYSICS.md gains D11, with no new parameter. `widgets/shared/format.ts` gains `formatCount` and `formatShortTime`, and slow playback rates group their thousands ("1/4,096×"). The widget contract test now accepts a slider as a widget's own control. Decision 34.
 
 - **M5: `lenz-brake` widget** (2026-09-27). The reader holds the glide wheel at 8 rev/s and lets it go with the mainspring out of the way. A plot traces its speed until friction and the coil stop it. The primary control is the share of the time the coil is shorted: open, the wheel coasts 1.118 s; a quarter of the time shorted, 0.299 s; shorted throughout, 0.110 s. The open coil's run stays on the plot for reference, with the last three runs faint beside the current one. Arcs around the wheel compare brake and friction torque, which at full brake is 20.85 times friction. Readouts give speed, the share shorted, both torques in nN·m, the mean coil current, and the time since letting go. `src/sim/spindown.ts` steps the coast as detailed mode does, with a ledger that closes exactly. PHYSICS.md gains D10, its predictions, and a note that a sine EMF into a pure resistance would brake π²/8 harder than the model's rectified mean (an open question). The magnet and coil drawing moved to `widgets/shared/`. Decision 33.
 
