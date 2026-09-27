@@ -37,6 +37,7 @@ src/
     shared/                 What every widget uses (decision 27):
       shell.ts                The canvas, readouts, controls, scheduler registration, and unmount.
       format.ts               Readout values with their units, counts with thousands separators, short times, and playback rates.
+      labels.ts               Placing labels along a line so none overlaps another, pure.
       dial.ts                 Hand angles and dial geometry, pure.
       draw.ts                 Canvas drawing of dials, hands, labels, the glide wheel's magnet, and the coil.
       magnet.ts               The magnet's pole sectors, and when to letter them, pure.
@@ -46,6 +47,7 @@ src/
     generator/              The magnet turned at the reader's speed, and a scope of the coil's EMF (decision 31). logic.ts is pure; index.ts mounts and draws.
     lenz-brake/             The wheel let go from 8 rev/s, braked by friction and the coil, with its spin-down plotted (decision 33). logic.ts is pure; index.ts mounts and draws.
     quartz/                 The crystal and every stage of the divider chain on a logic analyser, slowed by powers of two (decision 34). logic.ts is pure; index.ts mounts and draws.
+    loop/                   The regulated movement at full wind, knocked or unregulated, with the wheel as the reference sees it and a scope of speed, phase error, and duty (decision 36). logic.ts is pure; index.ts mounts and draws.
 tools/
   sim-cli.ts                `npm run sim -- <scenario>… | all [--out <dir>]`: main(argv, io) returns the exit code.
   scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
@@ -62,7 +64,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists the widgets still to come (M7 and M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
+The target in `PLAN.md` also lists the widget still to come (M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
 
 ## The rule: physics, runtime, and widgets stay separate
 

@@ -9,6 +9,7 @@ import { TAU, revSToRadS, wrapAngleRad } from '../../sim/units.ts';
 import { polar } from '../shared/dial.ts';
 import { drawCoil, drawMagnet, labelFont } from '../shared/draw.ts';
 import { formatPercent, withUnit } from '../shared/format.ts';
+import { placeLabels } from '../shared/labels.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   DUTY_STEP,
@@ -31,7 +32,6 @@ import {
   runLabel,
   setDuty,
   setSlowMotion,
-  placeLabels,
   openCoilLabelTimeS,
   TORQUE_ARC_START_RAD,
   torqueArcRad,
@@ -290,7 +290,9 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       ctx.fillText(runLabel(openCoil), at.x + 4, at.y - 4);
     }
 
-    // Each finished run's name beside where it stopped: this run's first,
+    // Each finished run's name beside where it stopped, to the right if it
+    // fits, so the run's own curve, coming down from the upper left, is not
+    // written over. This run's first,
     // then earlier runs, newest first, where they fit. A run with the coil
     // open throughout is the reference curve again, already named.
     const named = [

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createAveragedState, detailedFromAveraged } from '../../src/sim/averaged.ts';
+import { advanceSteps, applyShock, phaseErrorRad } from '../../src/sim/detailed.ts';
 import { lockTimeS } from '../../src/sim/metrics.ts';
 import { ROTOR_TARGET_OMEGA_RAD_S, SHOCK_DELTA_OMEGA_RAD_S } from '../../src/sim/params.ts';
 import { P, run } from './helpers.ts';
@@ -53,5 +55,36 @@ describe('test 6: disturbance recovery', () => {
     // Not a PHYSICS.md prediction, only a bound: a stop needs a full spin-up
     // (about 2 s) before the phase can be repaid; it measured 3.25 s.
     expect(lockTimeS(samples, P, SHOCK_AT_S)! - SHOCK_AT_S).toBeLessThanOrEqual(5);
+  });
+
+  it('swings the phase error, at full wind, +44.6° to +55.6° for a knock forward and −56.4° to −67.3° for one back, by where in the reference period it lands', () => {
+    // PHYSICS.md, D12: the loop widget's knock. The IC acts only at ticks, so
+    // a knock just after one goes unanswered for most of a period and swings
+    // furthest. Sixteen landing points, every 32 steps across a period, from
+    // a movement settled at full wind; each run's peak is taken at every step.
+    const ON = { brakeEnabled: true };
+    const settled = detailedFromAveraged(createAveragedState(P, { windFraction: 1 }), P);
+    const stepsPerTick = 512;
+    const peaksDeg = (sign: 1 | -1) =>
+      Array.from({ length: 16 }, (_, k) => {
+        let s = advanceSteps(settled, P, ON, stepsPerTick + k * 32);
+        s = applyShock(s, sign * SHOCK_DELTA_OMEGA_RAD_S, P);
+        let peak = 0;
+        for (let i = 0; i < 2 * 4096; i++) {
+          s = advanceSteps(s, P, ON, 1);
+          peak = Math.max(peak, sign * phaseErrorRad(s, P));
+        }
+        return (peak * 180) / Math.PI;
+      });
+    const forward = peaksDeg(1);
+    const back = peaksDeg(-1);
+    // To the 0.1° PHYSICS.md states them to.
+    expect(Math.min(...forward)).toBeCloseTo(44.6, 1);
+    expect(Math.max(...forward)).toBeCloseTo(55.6, 1);
+    expect(Math.min(...back)).toBeCloseTo(56.4, 1);
+    expect(Math.max(...back)).toBeCloseTo(67.3, 1);
+    // The largest swing is from a knock landing right on a tick.
+    expect(forward[0]).toBe(Math.max(...forward));
+    expect(back[0]).toBe(Math.max(...back));
   });
 });

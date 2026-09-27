@@ -10,4 +10,5 @@ export const WIDGETS: Readonly<Record<string, () => Promise<{ mount: Mount }>>> 
   generator: () => import('./generator/index.ts'),
   'lenz-brake': () => import('./lenz-brake/index.ts'),
   quartz: () => import('./quartz/index.ts'),
+  loop: () => import('./loop/index.ts'),
 };

@@ -4,6 +4,7 @@ import { createScheduler } from '../../src/runtime/scheduler.ts';
 import { mount as mountGenerator } from '../../src/widgets/generator/index.ts';
 import { mount as mountHero } from '../../src/widgets/hero-glide/index.ts';
 import { mount as mountLenz } from '../../src/widgets/lenz-brake/index.ts';
+import { mount as mountLoop } from '../../src/widgets/loop/index.ts';
 import { mount as mountQuartz } from '../../src/widgets/quartz/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
@@ -23,6 +24,7 @@ const WIDGETS = [
   { id: 'generator', mount: mountGenerator, className: 'widget-generator' },
   { id: 'lenz-brake', mount: mountLenz, className: 'widget-lenz-brake' },
   { id: 'quartz', mount: mountQuartz, className: 'widget-quartz' },
+  { id: 'loop', mount: mountLoop, className: 'widget-loop' },
 ] as const;
 
 function setup(w: (typeof WIDGETS)[number], options: { reducedMotion?: boolean } = {}) {
