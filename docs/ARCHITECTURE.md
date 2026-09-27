@@ -17,7 +17,7 @@ src/
     mainspring.ts           Torque-curve interpolation, exact stored energy, winding with a slipping bridle.
     train.ts                Barrel torque reflected to the glide wheel; barrel angle per rotor angle.
     rotor.ts                Glide wheel dynamics: Coulomb, viscous, and Stribeck friction; stick at rest; no reversal; the friction minimum.
-    generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat; the instantaneous EMF waveform (D9).
+    generator.ts            Rectified-mean EMF, duty-averaged brake and charging currents, their torque and heat (the brake is the sine's mean-square heat, decision 35); the instantaneous EMF waveform (D9).
     power.ts                Capacitor, constant-power IC load, brownout and restart with hysteresis.
     quartz.ts               The 32,768 Hz divider chain, the integer-counted reference phase, and each stage's level as a bit of the cycle count (D11).
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.

@@ -57,17 +57,18 @@ describe('averaged operating points', () => {
     expect(Math.abs(s.duty / duty - 1)).toBeLessThan(0.02);
   });
 
-  it('holds the capacitor at the 0.7965 V PHYSICS.md derives, with the full-wind duty, in D5', () => {
+  it('holds the capacitor at the 0.7956 V PHYSICS.md derives, with the full-wind duty, in D5', () => {
     // 0.1 mV: the rounding PHYSICS.md shows. (At half wind the duty is lower,
-    // the capacitor charges for longer, and it sits 0.12 mV higher.)
-    expect(Math.abs(createAveragedState(P, { windFraction: 1 }).capVoltageV - 0.7965)).toBeLessThan(1e-4);
+    // the capacitor charges for longer, and it sits 0.19 mV higher.)
+    expect(Math.abs(createAveragedState(P, { windFraction: 1 }).capVoltageV - 0.7956)).toBeLessThan(1e-4);
   });
 
   it('solves the regulated point so that both the torques and the capacitor currents balance', () => {
     const driveNm = driveTorqueNm(0.7 * fullWindAngleRad(P), P);
     const reg = regulatedPoint(driveNm, P)!;
     const ke = P.generatorKeVSRad;
-    const brakeNm = (reg.duty * ke * ke * W0) / P.coilResistanceOhm;
+    // D4: the sine's mean square over R, π²/8 times the rectified mean's square.
+    const brakeNm = (reg.duty * (Math.PI ** 2 / 8) * ke * ke * W0) / P.coilResistanceOhm;
     const torqueNm = frictionTorqueNm(W0, P) + brakeNm + ke * reg.chargeA;
     // 10⁻¹²: the quadratic is solved in closed form, so only float rounding remains.
     expect(Math.abs(torqueNm / driveNm - 1)).toBeLessThan(1e-12);
@@ -133,7 +134,8 @@ describe('averaged regimes and their events', () => {
       const s = holding[100]!.state;
       expect(s.duty).toBe(1);
       const ke = P.generatorKeVSRad;
-      const loadNm = frictionTorqueNm(s.rotorOmegaRadS, P) + (ke * ke * s.rotorOmegaRadS) / P.coilResistanceOhm;
+      const loadNm =
+        frictionTorqueNm(s.rotorOmegaRadS, P) + ((Math.PI ** 2 / 8) * ke * ke * s.rotorOmegaRadS) / P.coilResistanceOhm;
       // 10⁻⁶: the point balances the mean drive over its step, and this is
       // the drive at the step's end; on the curve's steep top they differ by 5 × 10⁻⁸.
       expect(Math.abs(loadNm / driveTorqueNm(s.barrelAngleRad, P) - 1)).toBeLessThan(1e-6);

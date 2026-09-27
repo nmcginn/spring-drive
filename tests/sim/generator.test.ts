@@ -25,7 +25,7 @@ describe('the generator', () => {
     expect(generatorTorqueNm(shorted, P)).toBeCloseTo(maxBrakeTorqueNm(W0, P), 18);
   });
 
-  it('brakes in proportion to duty: τ = d·k_e²·ω/R, as PLAN.md writes it with R_eff = R/d', () => {
+  it("brakes in proportion to duty: τ = d·(π²/8)·k_e²·ω/R, PLAN.md's k_e²·ω/R_eff with R_eff = R/(d·π²/8)", () => {
     // With the capacitor above the EMF, only the brake path conducts.
     for (const d of [0, 0.1, 0.5]) {
       expect(generatorTorqueNm(coilCurrents(W0, 5, d, P), P)).toBeCloseTo(d * maxBrakeTorqueNm(W0, P), 18);
@@ -105,5 +105,24 @@ describe('the EMF waveform (D9)', () => {
 
   it('doubles in frequency with two pole pairs, at the same speed', () => {
     expect(emfFrequencyHz(W0, { ...P, generatorPolePairs: 2 })).toBeCloseTo(16, 12);
+  });
+  it('brakes, when shorted, with exactly the heat this waveform makes in the coil: the mean of e²/R, over ω', () => {
+    // Decision 35: the brake the dynamics use must be the one the drawn sine
+    // would give. Integrate e(θ)²/R over a turn and divide by ω to get the
+    // torque, and compare it with the model's full brake.
+    for (const polePairs of [1, 2]) {
+      const params = { ...P, generatorPolePairs: polePairs };
+      for (const omega of [W0 / 4, W0, 2 * W0]) {
+        const heatW = meanOverTurn((a) => instantaneousEmfV(a, omega, params) ** 2 / params.coilResistanceOhm);
+        // sin² has no kink, so the midpoint rule on 4,096 points is exact to
+        // float rounding for a whole number of cycles; 10⁻¹² is rounding.
+        expect(Math.abs(heatW / omega / maxBrakeTorqueNm(omega, params) - 1)).toBeLessThan(1e-12);
+      }
+    }
+  });
+
+  it('brakes π²/8 = 1.2337 times harder than the rectified mean EMF alone would, (mean |e|)²/(R·ω)', () => {
+    const naiveNm = emfV(W0, P) ** 2 / (P.coilResistanceOhm * W0);
+    expect(maxBrakeTorqueNm(W0, P) / naiveNm).toBeCloseTo(1.2337, 4);
   });
 });

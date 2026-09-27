@@ -3,14 +3,17 @@
 // The coil feeds two paths, chosen by the regulator's switch, which chops
 // far faster than the wheel turns (PHYSICS.md, step 4):
 // - For a fraction `duty` of the time the coil is shorted. Current e/R flows
-//   and brakes the wheel with torque k_e²·ω/R, all of it lost as heat in the
-//   coil. This is PLAN.md's τ_brake = k_e²·ω/R_eff, with R_eff = R/duty.
+//   and brakes the wheel, all of it lost as heat in the coil. The heat is the
+//   sine EMF's mean square over R, so the torque is (π²/8)·k_e²·ω/R: PLAN.md's
+//   τ_brake = k_e²·ω/R_eff, with R_eff = R/(duty·π²/8) (decision 35).
 // - The rest of the time it charges the capacitor through the rectifier,
 //   and only while its EMF exceeds the capacitor voltage plus the drop.
 //
 // The EMF is modelled by its rectified mean, e = k_e·ω, averaged over each
 // electrical cycle. Both the cycle and the chopping are much faster than
-// the wheel's speed can change, so the dynamics see only the averages.
+// the wheel's speed can change, so the dynamics see only the averages. The
+// charging path still uses that mean; a rectifier fed the sine would charge
+// toward its peak instead, which is a known gap (PHYSICS.md, D5).
 
 import type { SimParams } from './types.ts';
 
@@ -47,10 +50,18 @@ export function emfFrequencyHz(omegaRadS: number, params: SimParams): number {
   return (params.generatorPolePairs * Math.abs(omegaRadS)) / (2 * Math.PI);
 }
 
+/**
+ * A sine's mean square over its rectified mean squared, π²/8 ≈ 1.2337: the
+ * square of its form factor. A property of the sine, not a parameter. Heat in
+ * a resistance goes as the mean square, so a shorted coil with the D9 sine
+ * brakes this much harder than its mean EMF alone would suggest.
+ */
+export const SINE_MEAN_SQUARE_TO_MEAN_SQUARED = Math.PI ** 2 / 8;
+
 export interface CoilCurrents {
   /** Time-averaged current into the capacitor through the rectifier, A. */
   chargeA: number;
-  /** Time-averaged current around the shorted coil, A. */
+  /** Time-averaged magnitude of the current around the shorted coil, A. */
   brakeA: number;
   /** Current while the rectifier conducts (before averaging by 1 − duty), A. */
   chargeOnA: number;
@@ -66,14 +77,20 @@ export function coilCurrents(omegaRadS: number, capVoltageV: number, duty: numbe
   };
 }
 
-/** Torque the coil's current puts on the glide wheel, opposing its motion, N·m. */
+/**
+ * Torque the coil's current puts on the glide wheel, opposing its motion, N·m.
+ * The shorted coil's current is in phase with its EMF, so it is largest where
+ * the coupling is strongest, and its torque is π²/8 times k_e times its mean.
+ */
 export function generatorTorqueNm(currents: CoilCurrents, params: SimParams): number {
-  return params.generatorKeVSRad * (currents.chargeA + currents.brakeA);
+  return params.generatorKeVSRad * (currents.chargeA + SINE_MEAN_SQUARE_TO_MEAN_SQUARED * currents.brakeA);
 }
 
 /** The largest brake torque the coil can make at `omegaRadS`: duty 1, N·m. */
 export function maxBrakeTorqueNm(omegaRadS: number, params: SimParams): number {
-  return (params.generatorKeVSRad ** 2 * Math.abs(omegaRadS)) / params.coilResistanceOhm;
+  return (
+    (SINE_MEAN_SQUARE_TO_MEAN_SQUARED * params.generatorKeVSRad ** 2 * Math.abs(omegaRadS)) / params.coilResistanceOhm
+  );
 }
 
 /**
@@ -87,7 +104,9 @@ export function coilLossesW(
 ): { coilW: number; rectifierW: number } {
   const shortedA = duty > 0 ? currents.brakeA / duty : 0;
   return {
-    coilW: params.coilResistanceOhm * (duty * shortedA ** 2 + (1 - duty) * currents.chargeOnA ** 2),
+    coilW:
+      params.coilResistanceOhm *
+      (duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * shortedA ** 2 + (1 - duty) * currents.chargeOnA ** 2),
     rectifierW: params.rectifierDropV * currents.chargeA,
   };
 }
