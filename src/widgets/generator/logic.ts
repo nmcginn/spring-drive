@@ -13,7 +13,7 @@
 
 import { emfFrequencyHz, emfV, instantaneousEmfV, peakEmfV } from '../../sim/generator.ts';
 import type { SimParams } from '../../sim/types.ts';
-import { TAU, radSToRevS, revSToRadS } from '../../sim/units.ts';
+import { radSToRevS, revSToRadS } from '../../sim/units.ts';
 import { formatPlayback, withUnit } from '../shared/format.ts';
 
 /**
@@ -296,34 +296,4 @@ export function scopePoint(box: Box, i: number, n: number, emfV: number, scaleV:
     x: box.x + (box.width * i) / Math.max(1, n - 1),
     y: box.y + (box.height / 2) * (1 - clamped / scaleV),
   };
-}
-
-/**
- * The magnet's poles as sectors: 2p of them, alternating north and south,
- * each spanning π/p, with a north pole centred on `angleRad`. Angles are
- * clockwise from 12 o'clock, where the coil is, as on a dial.
- */
-export function poleSectors(angleRad: number, polePairs: number): { fromRad: number; toRad: number; north: boolean }[] {
-  const pitch = Math.PI / polePairs;
-  return Array.from({ length: 2 * polePairs }, (_, k) => {
-    const centre = angleRad + k * pitch;
-    return { fromRad: centre - pitch / 2, toRad: centre + pitch / 2, north: k % 2 === 0 };
-  });
-}
-
-/**
- * Beyond this turn a frame, N and S letters on the magnet would jump too far
- * between frames to read: 14°, which slow motion stays under all the way to
- * the top speed (16 rev/s at an eighth is 12° a frame at 60 Hz). At real
- * time, even 8 rev/s is 48° a frame, and the letters are left off.
- */
-export const POLE_LETTERS_MAX_SWEEP_RAD = 0.25;
-
-export function poleLettersVisible(sweepRad: number): boolean {
-  return Math.abs(sweepRad) <= POLE_LETTERS_MAX_SWEEP_RAD;
-}
-
-/** The angle over which the magnet's drawing repeats: one pole pair. */
-export function poleRepeatRad(polePairs: number): number {
-  return TAU / polePairs;
 }

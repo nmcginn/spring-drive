@@ -11,11 +11,13 @@ import { expect, expectStill, expectTicking, frames, press, pressAt, readout, te
 const HERO = '.widget-hero-glide';
 const RUNAWAY = '.widget-runaway';
 const GENERATOR = '.widget-generator';
+const LENZ = '.widget-lenz-brake';
 
 const WIDGETS = [
   { name: 'hero-glide', selector: HERO, playName: 'the two watches' },
   { name: 'runaway', selector: RUNAWAY, playName: 'the runaway glide wheel' },
   { name: 'generator', selector: GENERATOR, playName: 'the generator' },
+  { name: 'lenz-brake', selector: LENZ, playName: 'the coil brake' },
 ] as const;
 
 /** Bring a widget into view; lower widgets mount only as they near the viewport. */
@@ -285,6 +287,109 @@ test.describe('generator', () => {
     await open(page, 'generator', GENERATOR);
     await expect.poll(() => ticks(page, GENERATOR)).toBeGreaterThan(30);
     await snap(page, 'generator-dark');
+  });
+});
+
+test.describe('lenz-brake', () => {
+  const load = (page: Page) => page.getByRole('slider', { name: 'Coil shorted' });
+  const letGo = (page: Page) => page.getByRole('button', { name: 'Let the glide wheel go from 8 rev/s' });
+  const value = async (page: Page, label: string) => parseFloat((await readout(page, LENZ, label).textContent()) ?? '');
+  /** Wait until the wheel has stopped: the speed reads zero. */
+  const stopped = (page: Page) =>
+    expect(readout(page, LENZ, 'Glide wheel speed')).toHaveText('0.00\u202frev/s', { timeout: 10_000 });
+
+  test('opens held at 8 rev/s, with the torques the model gives there a quarter of the time shorted', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'lenz-brake', LENZ);
+    await expect(readout(page, LENZ, 'Glide wheel speed')).toHaveText('8.00\u202frev/s');
+    await expect(readout(page, LENZ, 'Coil shorted')).toHaveText('25\u202f%');
+    // PHYSICS.md, D4 and D10: a quarter of 198.9 nN·m, against 9.5 nN·m of friction.
+    await expect(readout(page, LENZ, 'Brake torque')).toHaveText('49.7\u202fnN·m');
+    await expect(readout(page, LENZ, 'Friction torque')).toHaveText('9.5\u202fnN·m');
+    await expect(readout(page, LENZ, 'Mean coil current')).toHaveText('2.50\u202fµA');
+    await expect(load(page)).toHaveAttribute('aria-valuetext', '25\u202f% of the time');
+    await expectTicking(page, LENZ);
+    await snap(page, 'lenz-brake');
+  });
+
+  test('the coil-load slider, its primary control, sets the brake, and a harder brake stops the wheel sooner', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'lenz-brake', LENZ);
+    // Open coil first: friction alone.
+    await load(page).focus();
+    await page.keyboard.press('Home');
+    await expect(readout(page, LENZ, 'Brake torque')).toHaveText('0.0\u202fnN·m');
+    await press(letGo(page));
+    await stopped(page);
+    const openS = await value(page, 'Time since let go');
+    // PHYSICS.md, D10: 1.118 s. The readout holds the stop as the sim
+    // locates it within its step, not the frame it was noticed on.
+    expect(openS).toBe(1.118);
+
+    // Then most of the time shorted, by tap or click near the slider's top.
+    await pressAt(load(page), 0.95);
+    // The wheel is at rest now, so the brake reads zero until it turns: Lenz
+    // braking needs motion. The next run shows the harder brake.
+    await expect.poll(() => value(page, 'Coil shorted')).toBeGreaterThan(80);
+    await expect(readout(page, LENZ, 'Brake torque')).toHaveText('0.0\u202fnN·m');
+    await press(letGo(page));
+    await stopped(page);
+    const shortS = await value(page, 'Time since let go');
+    expect(shortS).toBeLessThan(0.14);
+    expect(shortS).toBeGreaterThan(0.1);
+    await snap(page, 'lenz-brake-two-runs');
+
+    // And a third in between, so the plot compares three.
+    await pressAt(load(page), 0.3);
+    await expect.poll(() => value(page, 'Coil shorted')).toBeLessThan(40);
+    await press(letGo(page));
+    await stopped(page);
+    await snap(page, 'lenz-brake-three-runs');
+  });
+
+  test('steps the slider with the arrow keys, 1 % at a time', async ({ page }) => {
+    await open(page, 'lenz-brake', LENZ);
+    await load(page).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(readout(page, LENZ, 'Coil shorted')).toHaveText('26\u202f%');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await expect(readout(page, LENZ, 'Coil shorted')).toHaveText('24\u202f%');
+  });
+
+  test('shows the wheel slowing in slow motion', async ({ page, snap }) => {
+    await open(page, 'lenz-brake', LENZ);
+    const slow = page.getByRole('button', { name: 'Slow motion for the coil brake, one eighth of real time' });
+    await press(slow);
+    await expect(readout(page, LENZ, 'Playback')).toHaveText('1/8× real time');
+    await press(letGo(page));
+    // A quarter of the time shorted stops the wheel in 0.299 s of sim time,
+    // 2.4 s at an eighth. Catch it part way.
+    await expect.poll(() => value(page, 'Time since let go')).toBeGreaterThan(0.08);
+    expect(await value(page, 'Glide wheel speed')).toBeGreaterThan(0);
+    await snap(page, 'lenz-brake-slow-motion');
+    await stopped(page);
+  });
+
+  test('under reduced motion, letting go draws the finished run in the still frame', async ({ page, snap }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, 'lenz-brake', LENZ);
+    await press(letGo(page));
+    await expect(readout(page, LENZ, 'Time since let go')).toHaveText('0.299\u202fs');
+    await expectStill(page, LENZ);
+    await snap(page, 'lenz-brake-reduced-motion-run');
+  });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'lenz-brake', LENZ);
+    await press(letGo(page));
+    await stopped(page);
+    await snap(page, 'lenz-brake-dark');
   });
 });
 

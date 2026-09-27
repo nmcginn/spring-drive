@@ -12,16 +12,16 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M4 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8.
-- Last session: 2026-09-26, M4: the `generator` widget, the EMF waveform in `generator.ts`, `GENERATOR_POLE_PAIRS` and derivation D9, and a shared slider control (decisions 31 and 32).
-- Open PRs waiting on review: M4.
-- Next up: M5 (`lenz-brake`). M6 to M8 are eligible too; none of them needs M4's PR. M5 will likely want M4's slider and scope, so stacking it on M4 one deep is reasonable if M4 has not merged.
+- Current milestone: M5 done, in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9.
+- Last session: 2026-09-27, M5: the `lenz-brake` widget, the coast in `src/sim/spindown.ts`, derivation D10, and the magnet and coil drawing shared with the generator (decision 33).
+- Open PRs waiting on review: M5.
+- Next up: M6 (`quartz`). M7 and M8 are eligible too; none of them needs M5's PR.
 
 ## Open questions for the maintainer
 
 Questions the nightly loop could not answer without guessing at physics, architecture, or the article's structure. Each one names the task it blocks. When the maintainer answers, record the answer in `docs/DECISIONS.md`, add a *Decided* note to the task pointing at it, and delete the question here.
 
-(none open)
+- **Should the brake torque use the waveform's mean square rather than its rectified mean?** (Raised with M5. Blocks nothing yet. The answer would move numbers M7 and M8 show, so it is best settled before M7.) D4 brakes with k_e²·ω/R, where k_e·ω is the rectified-mean EMF. With D9's sine EMF, a coil shorted through a pure resistance would dissipate the mean square, which is π²/8 = 1.23 times more, so the real brake of that coil would be about 23% stronger (PHYSICS.md, D10, "What this brake leaves out"). The options: (a) leave it, and have the article say the brake is modelled from the mean EMF; (b) scale the brake by π²/8, which moves D4's capacity, every steady duty, the lock times, and D10's numbers, and may need the regulator's gains retuned; (c) raise R by π²/8 so the brake stays where it is and the charging path changes instead. The loop has not guessed: every widget uses D4's figure as it is.
 
 ---
 
@@ -92,7 +92,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M5: `lenz-brake` widget
 
-- [ ] **Coil load sets braking torque and spin-down.**
+- [x] **Coil load sets braking torque and spin-down.**
   *Needs:* M1.
   *Acceptance:* the widget done-when below.
 
@@ -148,6 +148,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M5: `lenz-brake` widget** (2026-09-27). The reader holds the glide wheel at 8 rev/s and lets it go with the mainspring out of the way. A plot traces its speed until friction and the coil stop it. The primary control is the share of the time the coil is shorted: open, the wheel coasts 1.118 s; a quarter of the time shorted, 0.299 s; shorted throughout, 0.110 s. The open coil's run stays on the plot for reference, with the last three runs faint beside the current one. Arcs around the wheel compare brake and friction torque, which at full brake is 20.85 times friction. Readouts give speed, the share shorted, both torques in nN·m, the mean coil current, and the time since letting go. `src/sim/spindown.ts` steps the coast as detailed mode does, with a ledger that closes exactly. PHYSICS.md gains D10, its predictions, and a note that a sine EMF into a pure resistance would brake π²/8 harder than the model's rectified mean (an open question). The magnet and coil drawing moved to `widgets/shared/`. Decision 33.
 
 - **M4: `generator` widget** (2026-09-26). The reader drags the glide wheel's speed from rest to 16 rev/s, and the wheel's two-pole magnet turns under the coil at exactly that speed while a scope traces the coil's EMF over the last half second, on fixed scales, so the wave grows taller and more tightly packed together as the speed rises: at 8 rev/s it peaks at 1.57 V, cycles at 8 Hz, and averages 1.00 V rectified, with a dashed line marking that mean. Readouts give speed, frequency, peak, and rectified mean with units, and Slow motion (⅛×) shows the letters N and S so each pole can be matched to the trace. `src/sim/generator.ts` gains `instantaneousEmfV`, `peakEmfV`, and `emfFrequencyHz`: a sine whose rectified mean is exactly the k_e·ω the dynamics use, so no existing number moves. PHYSICS.md gains `GENERATOR_POLE_PAIRS` (an assumption, 1) and D9. `runtime/controls.ts` gains `createSlider`, a native range input; motion blur and `formatPlayback` moved into `widgets/shared/`. An e2e test now fails if two controls on the page share an accessible name, which the first run of this widget caught. Decisions 31 and 32.
 

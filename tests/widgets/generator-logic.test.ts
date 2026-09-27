@@ -12,9 +12,6 @@ import {
   heightForWidth,
   initialGeneratorState,
   omegaAtRadS,
-  poleLettersVisible,
-  poleRepeatRad,
-  poleSectors,
   readouts,
   rotorAngleRad,
   rotorOmegaRadS,
@@ -271,20 +268,5 @@ describe('generator: layout and geometry', () => {
     expect(scopePoint(box, 10, 11, 3.5, 3.5)).toEqual({ x: 110, y: 20 });
     expect(scopePoint(box, 5, 11, -3.5, 3.5)).toEqual({ x: 60, y: 80 });
     expect(scopePoint(box, 5, 11, 99, 3.5).y).toBe(20);
-  });
-
-  it('draws one north and one south pole, with the north centred on the wheel’s angle', () => {
-    const [n, s] = poleSectors(0, 1);
-    expect(n).toEqual({ fromRad: -Math.PI / 2, toRad: Math.PI / 2, north: true });
-    expect(s!.north).toBe(false);
-    expect(poleSectors(0, 2)).toHaveLength(4);
-    expect(poleRepeatRad(1)).toBe(TAU);
-  });
-
-  it('letters the poles in a static frame and in slow motion up to the top speed, but not at real time', () => {
-    expect(poleLettersVisible(initialGeneratorState(P).sweepRad)).toBe(true);
-    const slowTop = run(setSpeed(setSlowMotion(initialGeneratorState(P), true), 16, true), 1);
-    expect(poleLettersVisible(slowTop.sweepRad)).toBe(true);
-    expect(poleLettersVisible(run(initialGeneratorState(P), 1).sweepRad)).toBe(false);
   });
 });

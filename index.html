@@ -44,7 +44,9 @@
 
       <section id="lenz-brake" aria-labelledby="lenz-brake-title">
         <h2 id="lenz-brake-title">Electricity pushes back</h2>
-        <!-- PROSE: drawing current from the <span class="part" data-part="coil">coils</span> brakes the <span class="part" data-part="rotor">glide wheel</span>. Widget slot (lenz-brake) lands in M5. -->
+        <!-- PROSE: drawing current from the <span class="part" data-part="coil">coil</span> brakes the <span class="part" data-part="rotor">glide wheel</span>. The current the moving magnet induces makes a magnetic field of its own that opposes the motion (Lenz's law), so every joule the coil turns to heat comes out of the wheel's motion. Open, the coil carries no current and does nothing; shorted, it brakes. Explain that the watch shorts it in short bursts, and the fraction of the time it is shorted sets the average braking. Invite the reader to let the wheel go from 8 rev/s and try different settings of the slider. -->
+        <figure class="widget-slot" data-widget="lenz-brake"></figure>
+        <!-- PROSE: what the reader just saw. Here the <span class="part" data-part="mainspring">mainspring</span> is left out, so only friction and the brake slow the <span class="part" data-part="rotor">glide wheel</span>. With the <span class="part" data-part="coil">coil</span> open, friction alone stops it in about 1.1 s; shorted all the time, it stops in about 0.11 s, because at 8 rev/s the full brake is about 21 times friction (the model's 199 nN·m against 9.5 nN·m). The brake is proportional to speed and to the time shorted, so it is a smooth, adjustable drag with nothing touching the wheel. Say these figures are the model's (PHYSICS.md, D4 and D10): the coil's resistance, the EMF constant, and the friction are assumptions, and the widget's all-or-nothing switch stands for a circuit whose details Seiko has not published. Lead into the next question: to hold 8 rev/s, the brake has to know how fast the wheel should turn, which needs a reference. -->
       </section>
 
       <section id="quartz" aria-labelledby="quartz-title">

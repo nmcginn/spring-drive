@@ -6,10 +6,8 @@ import { emfV } from '../../sim/generator.ts';
 import { DEFAULT_PARAMS } from '../../sim/params.ts';
 import type { SimParams } from '../../sim/types.ts';
 import { TAU, radSToRevS, wrapAngleRad } from '../../sim/units.ts';
-import { polar } from '../shared/dial.ts';
-import { drawArbor, labelFont } from '../shared/draw.ts';
+import { drawCoil, drawMagnet, labelFont } from '../shared/draw.ts';
 import { withUnit } from '../shared/format.ts';
-import { blur } from '../shared/motion.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   SCOPE_WINDOW_S,
@@ -19,9 +17,6 @@ import {
   generatorLayout,
   heightForWidth,
   initialGeneratorState,
-  poleLettersVisible,
-  poleRepeatRad,
-  poleSectors,
   readouts,
   rotorAngleRad,
   rotorOmegaRadS,
@@ -94,86 +89,17 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const layout = generatorLayout(size.cssWidth);
     if (layout.wheel.radius <= 0 || layout.scope.width <= 0) return;
     drawCoil(ctx, layout.coil, t);
-    drawMagnet(ctx, layout.wheel, t);
+    drawMagnet(
+      ctx,
+      layout.wheel,
+      {
+        angleRad: wrapAngleRad(rotorAngleRad(state)),
+        sweepRad: state.sweepRad,
+        polePairs: params.generatorPolePairs,
+      },
+      t,
+    );
     drawScope(ctx, layout.scope, t);
-  }
-
-  function drawCoil(ctx: CanvasRenderingContext2D, c: Box, t: Theme) {
-    ctx.fillStyle = t.ui.background;
-    ctx.strokeStyle = t.parts.coil;
-    ctx.lineWidth = 2;
-    ctx.fillRect(c.x, c.y, c.width, c.height);
-    ctx.strokeRect(c.x, c.y, c.width, c.height);
-    // Turns of wire across the core.
-    const turns = 7;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 1; i <= turns; i++) {
-      const x = c.x + (c.width * i) / (turns + 1);
-      ctx.moveTo(x - c.height * 0.15, c.y);
-      ctx.lineTo(x + c.height * 0.15, c.y + c.height);
-    }
-    ctx.stroke();
-    ctx.fillStyle = t.parts.coil;
-    ctx.font = labelFont(13, 600);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('coil', c.x + c.width + 6, c.y + c.height / 2);
-  }
-
-  function drawMagnet(ctx: CanvasRenderingContext2D, w: { cx: number; cy: number; radius: number }, t: Theme) {
-    const angle = wrapAngleRad(rotorAngleRad(state));
-    const b = blur(state.sweepRad, poleRepeatRad(params.generatorPolePairs));
-    ctx.fillStyle = t.ui.background;
-    ctx.beginPath();
-    ctx.arc(w.cx, w.cy, w.radius, 0, TAU);
-    ctx.fill();
-
-    ctx.fillStyle = t.parts.rotor;
-    ctx.globalAlpha = b.alpha;
-    for (let c = 0; c < b.copies; c++) {
-      for (const s of poleSectors(angle - c * b.stepRad, params.generatorPolePairs)) {
-        if (!s.north) continue;
-        wedge(ctx, w, s.fromRad, s.toRad);
-        ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = t.parts.rotor;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(w.cx, w.cy, w.radius, 0, TAU);
-    ctx.stroke();
-
-    if (poleLettersVisible(state.sweepRad)) {
-      ctx.font = labelFont(Math.max(12, w.radius * 0.28), 600);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      for (const s of poleSectors(angle, params.generatorPolePairs)) {
-        const p = polar(w.cx, w.cy, w.radius * 0.6, (s.fromRad + s.toRad) / 2);
-        ctx.fillStyle = s.north ? t.ui.background : t.parts.rotor;
-        ctx.fillText(s.north ? 'N' : 'S', p.x, p.y);
-      }
-    }
-    drawArbor(ctx, w.cx, w.cy, Math.max(3, w.radius * 0.08), t.parts.hand);
-    ctx.fillStyle = t.parts.rotor;
-    ctx.font = labelFont(13, 600);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('glide wheel', w.cx, w.cy + w.radius + 4);
-  }
-
-  function wedge(
-    ctx: CanvasRenderingContext2D,
-    w: { cx: number; cy: number; radius: number },
-    from: number,
-    to: number,
-  ) {
-    // Dial angles run clockwise from 12; the canvas's arc runs clockwise from 3.
-    ctx.beginPath();
-    ctx.moveTo(w.cx, w.cy);
-    ctx.arc(w.cx, w.cy, w.radius, from - Math.PI / 2, to - Math.PI / 2);
-    ctx.closePath();
   }
 
   function drawScope(ctx: CanvasRenderingContext2D, box: Box, t: Theme) {
