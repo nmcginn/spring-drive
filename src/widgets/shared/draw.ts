@@ -3,6 +3,8 @@
 
 import type { Theme } from '../../runtime/palette.ts';
 import { DIAL_MARKS, polar } from './dial.ts';
+import { poleLettersVisible, poleRepeatRad, poleSectors } from './magnet.ts';
+import { blur } from './motion.ts';
 
 /** Canvas text in the body face, falling back as the page's CSS does. */
 export function labelFont(sizePx: number, weight = 400): string {
@@ -68,4 +70,102 @@ export function drawArbor(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   ctx.beginPath();
   ctx.arc(cx, cy, radiusPx, 0, 2 * Math.PI);
   ctx.fill();
+}
+
+export interface WheelGeometry {
+  cx: number;
+  cy: number;
+  radius: number;
+}
+
+export interface BoxGeometry {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The coil's core with turns of wire across it, and its name to the right. */
+export function drawCoil(ctx: CanvasRenderingContext2D, c: BoxGeometry, t: Theme): void {
+  ctx.fillStyle = t.ui.background;
+  ctx.strokeStyle = t.parts.coil;
+  ctx.lineWidth = 2;
+  ctx.fillRect(c.x, c.y, c.width, c.height);
+  ctx.strokeRect(c.x, c.y, c.width, c.height);
+  const turns = 7;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 1; i <= turns; i++) {
+    const x = c.x + (c.width * i) / (turns + 1);
+    ctx.moveTo(x - c.height * 0.15, c.y);
+    ctx.lineTo(x + c.height * 0.15, c.y + c.height);
+  }
+  ctx.stroke();
+  ctx.fillStyle = t.parts.coil;
+  ctx.font = labelFont(13, 600);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('coil', c.x + c.width + 6, c.y + c.height / 2);
+}
+
+/** A sector of the wheel. Dial angles run clockwise from 12; the canvas's arc runs clockwise from 3. */
+function wedge(ctx: CanvasRenderingContext2D, w: WheelGeometry, from: number, to: number): void {
+  ctx.beginPath();
+  ctx.moveTo(w.cx, w.cy);
+  ctx.arc(w.cx, w.cy, w.radius, from - Math.PI / 2, to - Math.PI / 2);
+  ctx.closePath();
+}
+
+export interface MagnetDrawing {
+  /** The wheel's angle, wrapped, clockwise from 12 o'clock. */
+  angleRad: number;
+  /** How far it turned over the last frame, for the motion blur. */
+  sweepRad: number;
+  polePairs: number;
+}
+
+/**
+ * The glide wheel's magnet: north poles filled, south poles left open, with
+ * N and S lettered when the wheel turns slowly enough to read them, smeared
+ * over its last frame's turn when it does not, and named underneath.
+ */
+export function drawMagnet(ctx: CanvasRenderingContext2D, w: WheelGeometry, m: MagnetDrawing, t: Theme): void {
+  const b = blur(m.sweepRad, poleRepeatRad(m.polePairs));
+  ctx.fillStyle = t.ui.background;
+  ctx.beginPath();
+  ctx.arc(w.cx, w.cy, w.radius, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.fillStyle = t.parts.rotor;
+  ctx.globalAlpha = b.alpha;
+  for (let c = 0; c < b.copies; c++) {
+    for (const s of poleSectors(m.angleRad - c * b.stepRad, m.polePairs)) {
+      if (!s.north) continue;
+      wedge(ctx, w, s.fromRad, s.toRad);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = t.parts.rotor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(w.cx, w.cy, w.radius, 0, 2 * Math.PI);
+  ctx.stroke();
+
+  if (poleLettersVisible(m.sweepRad)) {
+    ctx.font = labelFont(Math.max(12, w.radius * 0.28), 600);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const s of poleSectors(m.angleRad, m.polePairs)) {
+      const p = polar(w.cx, w.cy, w.radius * 0.6, (s.fromRad + s.toRad) / 2);
+      ctx.fillStyle = s.north ? t.ui.background : t.parts.rotor;
+      ctx.fillText(s.north ? 'N' : 'S', p.x, p.y);
+    }
+  }
+  drawArbor(ctx, w.cx, w.cy, Math.max(3, w.radius * 0.08), t.parts.hand);
+  ctx.fillStyle = t.parts.rotor;
+  ctx.font = labelFont(13, 600);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('glide wheel', w.cx, w.cy + w.radius + 4);
 }

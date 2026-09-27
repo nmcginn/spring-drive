@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createScheduler } from '../../src/runtime/scheduler.ts';
 import { mount as mountGenerator } from '../../src/widgets/generator/index.ts';
 import { mount as mountHero } from '../../src/widgets/hero-glide/index.ts';
+import { mount as mountLenz } from '../../src/widgets/lenz-brake/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
 
@@ -19,6 +20,7 @@ const WIDGETS = [
   { id: 'hero-glide', mount: mountHero, className: 'widget-hero-glide' },
   { id: 'runaway', mount: mountRunaway, className: 'widget-runaway' },
   { id: 'generator', mount: mountGenerator, className: 'widget-generator' },
+  { id: 'lenz-brake', mount: mountLenz, className: 'widget-lenz-brake' },
 ] as const;
 
 function setup(w: (typeof WIDGETS)[number], options: { reducedMotion?: boolean } = {}) {
@@ -255,5 +257,89 @@ describe('generator: controls', () => {
     env.frame(10 * 60 * 1000);
     expect(ticks()).toBe(2);
     expect(values()[0]).toBe('8.0\u202frev/s');
+  });
+});
+
+describe('lenz-brake: controls', () => {
+  const lenz = WIDGETS[3];
+  const LET_GO = 'Let the glide wheel go from 8 rev/s';
+  const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
+  function drag(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('has a coil-load slider, its primary control, labelled and starting a quarter of the time shorted', () => {
+    const { root } = setup(lenz);
+    const input = slider(root());
+    expect(input.closest('label')?.textContent).toBe('Coil shorted');
+    expect(input.value).toBe('0.25');
+    expect(input.getAttribute('aria-valuetext')).toBe('25\u202f% of the time');
+  });
+
+  it('sets the brake torque from the slider, even while not animating', () => {
+    const { root, values } = setup(lenz);
+    drag(slider(root()), '1');
+    expect(values().slice(1, 3)).toEqual(['100\u202f%', '198.9\u202fnN·m']);
+    drag(slider(root()), '0');
+    expect(values().slice(1, 3)).toEqual(['0\u202f%', '0.0\u202fnN·m']);
+  });
+
+  it('lets the wheel go and it coasts to a stop on frames the scheduler gives it', () => {
+    const { env, root, button, values } = setup(lenz);
+    env.setVisible(root(), true);
+    env.frames(0, 2, FRAME_MS);
+    button(LET_GO).click();
+    env.frames(100, 5, FRAME_MS);
+    expect(parseFloat(values()[0]!)).toBeLessThan(8);
+    expect(parseFloat(values()[0]!)).toBeGreaterThan(0);
+    env.frames(1000, 60, FRAME_MS);
+    expect(values()[0]).toBe('0.00\u202frev/s');
+    // PHYSICS.md, D10: a quarter of the time shorted stops it in 0.299 s.
+    expect(values()[5]).toBe('0.299\u202fs');
+  });
+
+  it('under reduced motion, letting go shows the finished run in the still frame', () => {
+    const { env, root, button, ticks, values } = setup(lenz, { reducedMotion: true });
+    env.setVisible(root(), true);
+    button(LET_GO).click();
+    env.frames(0, 5, FRAME_MS);
+    expect(ticks()).toBe(0);
+    expect(values()[0]).toBe('0.00\u202frev/s');
+    expect(values()[5]).toBe('0.299\u202fs');
+  });
+
+  it('paused mid-run, holds still, and carries on from where it was when resumed', () => {
+    const { env, scheduler, root, button, values } = setup(lenz);
+    env.setVisible(root(), true);
+    env.frames(0, 2, FRAME_MS);
+    button(LET_GO).click();
+    env.frames(100, 6, FRAME_MS);
+    scheduler.setGloballyPaused(true);
+    const frozen = values();
+    env.frames(1000, 30, FRAME_MS);
+    expect(values()).toEqual(frozen);
+    scheduler.setGloballyPaused(false);
+    env.frames(5000, 60, FRAME_MS);
+    expect(values()[5]).toBe('0.299\u202fs');
+  });
+
+  it('survives a ten-minute frame gap mid-run as one clamped 0.1 s step', () => {
+    const { env, root, button, values } = setup(lenz);
+    env.setVisible(root(), true);
+    env.frame(0);
+    button(LET_GO).click();
+    env.frame(10 * 60 * 1000);
+    expect(values()[5]).toBe('0.100\u202fs');
+  });
+
+  it('switches to slow motion and back', () => {
+    const { button, values } = setup(lenz);
+    const slow = button('Slow motion for the coil brake, one eighth of real time');
+    slow.click();
+    expect(slow.getAttribute('aria-pressed')).toBe('true');
+    expect(values()).toContain('1/8× real time');
+    slow.click();
+    expect(values()).toContain('1× real time');
   });
 });

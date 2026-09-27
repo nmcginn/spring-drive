@@ -257,6 +257,21 @@ The dynamics use only the EMF's rectified mean, e = k_e·ω (D4, decision 20). T
 
 What the widget shows is the open-circuit EMF, the voltage the moving magnet induces whether or not current flows. In the watch, the coil's terminal voltage differs from it by the current through the coil's 100 kΩ, and the capacitor only charges while the EMF exceeds its voltage plus the rectifier drop (D5). The widget draws no current, so neither applies.
 
+### D10. The coil as a brake, with the spring out of the way
+
+The lenz-brake widget (M5) lets the glide wheel go from 8 rev/s with nothing driving it, and shows friction and the coil stopping it. Nothing new is assumed. The brake is D4's, duty-averaged: the coil is shorted for a fraction d of the time and open the rest, so the brake torque is d × k_e²·ω/R. Nothing else is connected (no rectifier, capacitor, or IC), so an open coil carries no current at all and does nothing. `src/sim/spindown.ts` steps it with detailed mode's integrator and friction (D3).
+
+- **Torques at 8 rev/s.** Fully shorted, k_e²·ω₀/R = **198.9 nN·m** (D4). Friction is **9.542 nN·m** (D3), so the full brake is 198.9 ÷ 9.542 = **20.85** times friction. At d = 0.25, the widget's opening setting, the brake is 49.7 nN·m.
+- **Coil current.** While shorted, e/R = 1.0 V ÷ 100,000 Ω = **10 µA** at 8 rev/s, so a mean of d × 10 µA.
+- **Spin-down, checked by hand.** Leaving out the Stribeck term (D3), the wheel obeys J·dω/dt = −τ_c − b′·ω, with b′ = b + d·k_e²/R. So ω(t) = (ω₀ + τ_c/b′)·e^(−t·b′/J) − τ_c/b′, and it stops at t = (J/b′)·ln(1 + b′·ω₀/τ_c).
+  - Open, b′ = 1.6 × 10⁻¹⁰, and J/b′ = 0.625 s. ln(1 + 1.6 × 10⁻¹⁰ × 50.2655 ÷ 1.5 × 10⁻⁹) = ln 6.362 = 1.850, so **1.156 s**.
+  - Fully shorted, b′ = 1.6 × 10⁻¹⁰ + 3.958 × 10⁻⁴ ÷ 100,000 = 4.118 × 10⁻⁹, and J/b′ = 24.3 ms. ln(1 + 4.118 × 10⁻⁹ × 50.2655 ÷ 1.5 × 10⁻⁹) = ln 139.0 = 4.934, so **0.120 s**.
+  - The simulation matches both to within three steps (`tests/sim/spindown.test.ts`).
+- **Spin-down, as the widget shows it.** With the Stribeck term, the breakaway friction that grows as the wheel slows ends each run a little sooner. Stop times from 8 rev/s: **1.118 s** open, **0.299 s** at d = 0.25, **0.185 s** at d = 0.5, and **0.110 s** fully shorted. The widget's time axis runs to 1.25 s, the open coil's time rounded up to a quarter second.
+- **Where the energy goes.** The wheel's ½Jω₀² = ½ × 1.0 × 10⁻¹⁰ × 50.2655² = 1.263 × 10⁻⁷ J ends as heat: all in friction with the coil open, **82%** in the coil at d = 0.25, and **95%** fully shorted. The ledger is booked at each step's mean speed, which for semi-implicit Euler closes exactly (J·Δω = −τ·dt, so ΔKE = −τ·dt·ω̄), and it balances to float rounding.
+
+**What this brake leaves out.** D4's brake is the rectified-mean EMF driven through the coil's resistance, k_e²·ω/R. If the coil's EMF is the sine of D9, a coil shorted through a pure resistance dissipates the sine's mean square, e_peak²/2R, not (mean |e|)²/R. That is (π/2)² ÷ 2 = π²/8 = **1.23** times more, so a fully shorted coil with that waveform would brake about 23% harder than the model says. Every widget uses D4's figure, so they agree with each other, and k_e and R are both assumptions, so the difference could be absorbed into either. It is flagged for the maintainer under Open questions in `docs/ROADMAP.md`. The coil's inductance is also left out, as it is in D4.
+
 ## Model predictions
 
 What the parameters above imply, as asserted by the physics tests. When a parameter changes, these change, and the tests say so.
@@ -286,6 +301,9 @@ What the parameters above imply, as asserted by the physics tests. When a parame
 | Glide wheel stalls, at the end of a run-down | at fraction 0.00374, from about 0.36 rev/s | Test 5 (the run-down case), test 4 |
 | EMF at 8 rev/s: peak and frequency | 1.5708 V, 8 Hz | `tests/sim/generator.test.ts` (D9) |
 | EMF waveform's rectified mean, any speed | k_e·ω, within 10⁻⁶ | `tests/sim/generator.test.ts` (D9) |
+| Brake at 8 rev/s, fully shorted, against friction | 198.9 nN·m, 20.85× friction's 9.542 nN·m | `tests/sim/spindown.test.ts` (D10) |
+| Spin-down from 8 rev/s, spring out of the way: open, 25%, 50%, 100% shorted | 1.118 s, 0.299 s, 0.185 s, 0.110 s | `tests/sim/spindown.test.ts`, `tests/widgets/lenz-brake-logic.test.ts` (D10) |
+| Share of the wheel's energy heating the coil in those spin-downs | 0%, 82%, 95% (open, 25%, 100%) | `tests/sim/spindown.test.ts` (D10) |
 | Energy balance, detailed mode | within 1 part in 10⁵ | Test 5, `tests/sim/energy.test.ts` |
 
 Lock times are multiples of 0.125 s because lock is judged once per reference period.
@@ -310,4 +328,4 @@ The budget closes by construction here. Averaged mode's ledger over a full run-d
 
 When a value changes after it first lands, note it here: date, PR, old and new value, and why. Amend rows in place, and keep the history here.
 
-- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, and M4 added `GENERATOR_POLE_PAIRS` and derivation D9; neither changed an existing value.)
+- (none yet: every value above first landed in M1, or with its own milestone. M3 added `MECHANICAL_BEAT_HZ` and derivation D8, M4 added `GENERATOR_POLE_PAIRS` and derivation D9, and M5 added derivation D10 with no new parameter; none changed an existing value.)
