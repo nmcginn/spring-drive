@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M8 (`tri-synchro`), in review, stacked on M7b (#14). M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, and M7 as #13.
+- Current milestone: M8 (`tri-synchro`), in review as #15. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, and M7b as #14.
 - Last session: 2026-09-28, M8: the tri-synchro widget, with derivation D13, `powerFlows` in averaged mode, and decision 38. No new parameter.
-- Open PRs waiting on review: M7b (#14), then M8, which is stacked on it.
-- Next up: M9 (polish), which needs M3 to M8 merged. Until M7b and M8 are, nothing new can start without stacking two deep, so the next session should spend its night on review feedback for them.
+- Open PRs waiting on review: M8 (#15).
+- Next up: M9 (polish), which needs M3 to M8 merged. It can stack on #15 while that is in review.
 
 ## Open questions for the maintainer
 
