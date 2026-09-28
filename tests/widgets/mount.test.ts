@@ -7,6 +7,7 @@ import { mount as mountLenz } from '../../src/widgets/lenz-brake/index.ts';
 import { mount as mountLoop } from '../../src/widgets/loop/index.ts';
 import { mount as mountQuartz } from '../../src/widgets/quartz/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
+import { mount as mountTri } from '../../src/widgets/tri-synchro/index.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
 
 // The widget contract (ROADMAP.md, "Widget done-when"), checked for every
@@ -25,6 +26,7 @@ const WIDGETS = [
   { id: 'lenz-brake', mount: mountLenz, className: 'widget-lenz-brake' },
   { id: 'quartz', mount: mountQuartz, className: 'widget-quartz' },
   { id: 'loop', mount: mountLoop, className: 'widget-loop' },
+  { id: 'tri-synchro', mount: mountTri, className: 'widget-tri-synchro' },
 ] as const;
 
 function setup(w: (typeof WIDGETS)[number], options: { reducedMotion?: boolean } = {}) {
@@ -414,5 +416,84 @@ describe('quartz: controls', () => {
     expect(ticks()).toBe(2);
     // 0.1 s at real time is 3,276.8 cycles: no tick given yet.
     expect(values().slice(3)).toEqual(['3,276\u202fcycles', '0\u202fticks']);
+  });
+});
+
+describe('tri-synchro: controls', () => {
+  const tri = WIDGETS[6];
+  const WIND = 'Wind the mainspring fully and start the reserve again from 0 h';
+  const SKIP = 'Skip six hours ahead';
+  const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
+  function drag(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('has a time slider, its primary control, labelled and starting at an hour a second', () => {
+    const { root, values } = setup(tri);
+    const input = slider(root());
+    expect(input.closest('label')?.textContent).toBe('Time runs at');
+    expect([input.min, input.max, input.step, input.value]).toEqual(['0', '3', '1', '2']);
+    expect(input.getAttribute('aria-valuetext')).toBe('1 hour each second');
+    expect(values()[1]).toBe('1\u202fh/s');
+  });
+
+  it('sets how fast time runs from the slider, and hours pass at that rate on frames the scheduler gives it', () => {
+    const { env, root, values } = setup(tri);
+    drag(slider(root()), '3');
+    expect(values()[1]).toBe('2\u202fh/s');
+    env.setVisible(root(), true);
+    // The first frame steps zero; the next 60 step a sixtieth of a second each: two hours.
+    env.frames(0, 61, FRAME_MS);
+    expect(values()[0]).toBe('2\u202fh 00\u202fmin');
+    expect(values()[2]).toBe('70.0\u202fh');
+  });
+
+  it('skips six hours from its button, even while not animating, and winds back to full', () => {
+    const { button, values, ticks } = setup(tri);
+    button(SKIP).click();
+    expect(ticks()).toBe(0);
+    expect(values()[0]).toBe('6\u202fh 00\u202fmin');
+    expect(values()[2]).toBe('66.0\u202fh');
+    button(WIND).click();
+    expect(values()[0]).toBe('0.0\u202fs');
+    expect(values()[2]).toBe('72.0\u202fh');
+  });
+
+  it('under reduced motion, skipping to the end shows the stopped watch in the still frame', () => {
+    const { env, root, button, ticks, values } = setup(tri, { reducedMotion: true });
+    env.setVisible(root(), true);
+    for (let i = 0; i < 13; i++) button(SKIP).click();
+    env.frames(0, 5, FRAME_MS);
+    expect(ticks()).toBe(0);
+    expect(values()[3]).toBe('0.000\u202frev/s');
+    expect(values()[5]).toBe('0.891\u202fV');
+    expect(root().querySelector('.widget-note')?.textContent).toContain('±15 s/month');
+  });
+
+  it('paused mid-run, holds still, and carries on from where it was when resumed', () => {
+    const { env, scheduler, root, values } = setup(tri);
+    env.setVisible(root(), true);
+    env.frames(0, 31, FRAME_MS);
+    scheduler.setGloballyPaused(true);
+    const frozen = values();
+    env.frames(1000, 30, FRAME_MS);
+    expect(values()).toEqual(frozen);
+    scheduler.setGloballyPaused(false);
+    env.frames(5000, 31, FRAME_MS);
+    // Half an hour before the pause and half an hour after it, and none of the paused time.
+    // Thirty frames of a sixtieth sum to a hair under half a second, and the clock floors.
+    expect(frozen[0]).toBe('29\u202fmin 59\u202fs');
+    expect(values()[0]).toBe('59\u202fmin 59\u202fs');
+  });
+
+  it('survives a ten-minute frame gap as one clamped 0.1 s step: 6 min of sim time at 1 h/s', () => {
+    const { env, root, ticks, values } = setup(tri);
+    env.setVisible(root(), true);
+    env.frame(0);
+    env.frame(10 * 60 * 1000);
+    expect(ticks()).toBe(2);
+    expect(values()[0]).toBe('6\u202fmin 00\u202fs');
+    expect(values()[3]).toBe('8.000\u202frev/s');
   });
 });

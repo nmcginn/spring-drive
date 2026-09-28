@@ -14,6 +14,7 @@ const GENERATOR = '.widget-generator';
 const LENZ = '.widget-lenz-brake';
 const QUARTZ = '.widget-quartz';
 const LOOP = '.widget-loop';
+const TRI = '.widget-tri-synchro';
 
 const WIDGETS = [
   { name: 'hero-glide', selector: HERO, playName: 'the two watches' },
@@ -22,6 +23,7 @@ const WIDGETS = [
   { name: 'lenz-brake', selector: LENZ, playName: 'the coil brake' },
   { name: 'quartz', selector: QUARTZ, playName: 'the quartz divider' },
   { name: 'loop', selector: LOOP, playName: 'the regulating loop' },
+  { name: 'tri-synchro', selector: TRI, playName: 'the whole movement over its reserve' },
 ] as const;
 
 /** Bring a widget into view; lower widgets mount only as they near the viewport. */
@@ -562,6 +564,107 @@ test.describe('loop', () => {
     await press(slower(page));
     await frames(page, 45);
     await snap(page, 'loop-dark');
+  });
+});
+
+test.describe('tri-synchro', () => {
+  const time = (page: Page) => page.getByRole('slider', { name: 'Time runs at' });
+  const skip = (page: Page) => page.getByRole('button', { name: 'Skip six hours ahead' });
+  const wind = (page: Page) =>
+    page.getByRole('button', { name: 'Wind the mainspring fully and start the reserve again from 0 h' });
+  const hoursIn = async (page: Page) => {
+    const text = (await readout(page, TRI, 'Time since wound').textContent()) ?? '';
+    const m = /^(\d+)\u202fh (\d+)\u202fmin$/.exec(text);
+    return m ? Number(m[1]) + Number(m[2]) / 60 : 0;
+  };
+
+  test('opens just wound and regulated, on the full-wind figures the model gives', async ({ page, snap }) => {
+    await open(page, 'tri-synchro', TRI);
+    await expect(readout(page, TRI, 'Time runs at')).toHaveText('1\u202fh/s');
+    await expect(readout(page, TRI, 'Glide wheel speed')).toHaveText('8.000\u202frev/s');
+    // PHYSICS.md, D4 and D5: the full-wind duty and supply, which ease off only slowly.
+    await expect(readout(page, TRI, 'Supply voltage')).toHaveText(/^1\.34\d\u202fV$/);
+    await expect(readout(page, TRI, 'Hands vs true time')).toHaveText('0.0\u202fs');
+    await expect(readout(page, TRI, 'Rate')).toHaveText('0.0\u202fs/day');
+    await expect(page.locator(`${TRI} .widget-note`)).toContainText('±15 s/month');
+    await expect(time(page)).toHaveAttribute('aria-valuetext', '1 hour each second');
+    // An hour a second: a few seconds of page time is a few hours.
+    await expect.poll(() => hoursIn(page)).toBeGreaterThan(2);
+    await snap(page, 'tri-synchro');
+  });
+
+  test('the time slider, its primary control, runs time from a minute to two hours a second', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'tri-synchro', TRI);
+    await pressAt(time(page), 0.99);
+    await expect(readout(page, TRI, 'Time runs at')).toHaveText('2\u202fh/s');
+    await expect(time(page)).toHaveAttribute('aria-valuetext', '2 hours each second');
+    const before = await hoursIn(page);
+    await expect.poll(() => hoursIn(page)).toBeGreaterThan(before + 4);
+    await snap(page, 'tri-synchro-fast');
+
+    await pressAt(time(page), 0.01);
+    await expect(readout(page, TRI, 'Time runs at')).toHaveText('1\u202fmin/s');
+    await expectTicking(page, TRI);
+  });
+
+  test('steps the slider with the arrow keys, one rate at a time', async ({ page }) => {
+    await open(page, 'tri-synchro', TRI);
+    await time(page).focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(readout(page, TRI, 'Time runs at')).toHaveText('10\u202fmin/s');
+    await page.keyboard.press('Home');
+    await expect(time(page)).toHaveAttribute('aria-valuetext', '1 minute each second');
+  });
+
+  test('skipped to the end of the reserve: regulation ends, the IC browns out, and the wheel stops', async ({
+    page,
+    snap,
+  }) => {
+    await open(page, 'tri-synchro', TRI);
+    await press(page.getByRole('button', { name: 'Pause animations' }));
+    await expectStill(page, TRI);
+    // It ran for a moment before the pause; winding starts it again from 0 h.
+    await press(wind(page));
+    // Twelve skips is 72 h: past the brownout at 71.2 h, short of the stop at 73.8 h (PHYSICS.md, D7).
+    for (let i = 0; i < 12; i++) await press(skip(page));
+    await expect(readout(page, TRI, 'Time since wound')).toHaveText('72\u202fh 00\u202fmin');
+    await expect(readout(page, TRI, 'Brake duty')).toHaveText('0.0\u202f%');
+    await expect(readout(page, TRI, 'Supply voltage')).toHaveText('0.891\u202fV');
+    await expect(readout(page, TRI, 'Hands vs true time')).toHaveText(/^\u2212\d+\u202fmin \d\d\u202fs$/);
+    await snap(page, 'tri-synchro-brownout');
+
+    await press(skip(page));
+    await expect(readout(page, TRI, 'Glide wheel speed')).toHaveText('0.000\u202frev/s');
+    // D13: the hands stop at 71.73 h, 2.04 h behind the 73.78 h stop, and fall further behind as time passes.
+    await expect(readout(page, TRI, 'Hands vs true time')).toHaveText(/^\u22126\u202fh \d\d\u202fmin$/);
+    await expect(readout(page, TRI, 'Power reserve')).toHaveText('0.3\u202fh');
+    await snap(page, 'tri-synchro-stopped');
+
+    await press(wind(page));
+    await expect(readout(page, TRI, 'Power reserve')).toHaveText('72.0\u202fh');
+    await expect(readout(page, TRI, 'Glide wheel speed')).toHaveText('8.000\u202frev/s');
+  });
+
+  test('under reduced motion, skipping draws the reserve so far in the still frame', async ({ page, snap }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, 'tri-synchro', TRI);
+    for (let i = 0; i < 12; i++) await press(skip(page));
+    await expectStill(page, TRI);
+    expect(await ticks(page, TRI)).toBe(0);
+    await expect(readout(page, TRI, 'Time since wound')).toHaveText('72\u202fh 00\u202fmin');
+    await snap(page, 'tri-synchro-reduced-motion-skipped');
+  });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'tri-synchro', TRI);
+    await press(page.getByRole('button', { name: 'Pause animations' }));
+    await press(wind(page));
+    for (let i = 0; i < 12; i++) await press(skip(page));
+    await snap(page, 'tri-synchro-dark');
   });
 });
 
