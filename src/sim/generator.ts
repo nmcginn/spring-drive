@@ -7,14 +7,14 @@
 //   sine EMF's mean square over R, so the torque is (π²/8)·k_e²·ω/R: PLAN.md's
 //   τ_brake = k_e²·ω/R_eff, with R_eff = R/(duty·π²/8) (decision 35).
 // - The rest of the time it charges the capacitor through the rectifier,
-//   and only while its EMF exceeds the capacitor voltage plus the drop.
+//   which conducts only near the sine's peaks, while |e| exceeds the
+//   capacitor voltage plus the drop (`rectifier.ts`, decision 37).
 //
-// The EMF is modelled by its rectified mean, e = k_e·ω, averaged over each
-// electrical cycle. Both the cycle and the chopping are much faster than
-// the wheel's speed can change, so the dynamics see only the averages. The
-// charging path still uses that mean; a rectifier fed the sine would charge
-// toward its peak instead, which is a known gap (PHYSICS.md, D5).
+// Both paths are averaged over the EMF's cycle and the switch's chopping,
+// which are much faster than the wheel's speed can change, so the dynamics
+// see only the means (decision 20). `emfV` is the rectified mean, k_e·ω.
 
+import { rectifierCycle } from './rectifier.ts';
 import type { SimParams } from './types.ts';
 
 /** Rectified-mean EMF, V. */
@@ -22,8 +22,8 @@ export function emfV(omegaRadS: number, params: SimParams): number {
   return params.generatorKeVSRad * Math.abs(omegaRadS);
 }
 
-// The waveform itself (PHYSICS.md, D9). Only the generator widget draws it;
-// the dynamics above use its rectified mean, and nothing here changes them.
+// The waveform itself (PHYSICS.md, D9). The generator widget draws it, and
+// its peak and mean square set the charging path and the brake above.
 //
 // The coil's flux linkage is taken as sinusoidal in the magnet's angle,
 // λ = Λ·cos(p·θ), with θ = 0 where a north pole faces the coil. Its EMF is
@@ -63,27 +63,43 @@ export interface CoilCurrents {
   chargeA: number;
   /** Time-averaged magnitude of the current around the shorted coil, A. */
   brakeA: number;
-  /** Current while the rectifier conducts (before averaging by 1 − duty), A. */
+  /** Mean charging current over a cycle while the coil is not shorted (before averaging by 1 − duty), A. */
   chargeOnA: number;
+  /** Mean square of that current over a cycle, A². */
+  chargeOnMeanSquareA2: number;
+  /** Time-averaged power the EMF delivers into the charging path, W. */
+  chargeW: number;
 }
 
 export function coilCurrents(omegaRadS: number, capVoltageV: number, duty: number, params: SimParams): CoilCurrents {
-  const e = emfV(omegaRadS, params);
-  const chargeOnA = Math.max(0, (e - capVoltageV - params.rectifierDropV) / params.coilResistanceOhm);
+  const cycle = rectifierCycle(
+    peakEmfV(omegaRadS, params),
+    capVoltageV + params.rectifierDropV,
+    params.coilResistanceOhm,
+  );
   return {
-    chargeA: (1 - duty) * chargeOnA,
-    brakeA: (duty * e) / params.coilResistanceOhm,
-    chargeOnA,
+    chargeA: (1 - duty) * cycle.meanA,
+    brakeA: (duty * emfV(omegaRadS, params)) / params.coilResistanceOhm,
+    chargeOnA: cycle.meanA,
+    chargeOnMeanSquareA2: cycle.meanSquareA2,
+    chargeW: (1 - duty) * cycle.meanPowerW,
   };
 }
 
 /**
  * Torque the coil's current puts on the glide wheel, opposing its motion, N·m.
- * The shorted coil's current is in phase with its EMF, so it is largest where
- * the coupling is strongest, and its torque is π²/8 times k_e times its mean.
+ * Each path takes from the wheel the power it draws from the EMF, so its
+ * torque is that power over ω. The shorted coil's current is in phase with
+ * its EMF, largest where the coupling is strongest, so its torque is π²/8
+ * times k_e times its mean. The charging current flows only near the peaks,
+ * where the coupling is strongest too, so its torque is its power over ω,
+ * not k_e times its mean.
  */
-export function generatorTorqueNm(currents: CoilCurrents, params: SimParams): number {
-  return params.generatorKeVSRad * (currents.chargeA + SINE_MEAN_SQUARE_TO_MEAN_SQUARED * currents.brakeA);
+export function generatorTorqueNm(currents: CoilCurrents, omegaRadS: number, params: SimParams): number {
+  const brakeNm = params.generatorKeVSRad * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * currents.brakeA;
+  // No charging power flows unless the peak beats the rectifier's drop, which is above zero at ω = 0.
+  const speed = Math.abs(omegaRadS);
+  return brakeNm + (currents.chargeW > 0 && speed > 0 ? currents.chargeW / speed : 0);
 }
 
 /** The largest brake torque the coil can make at `omegaRadS`: duty 1, N·m. */
@@ -106,7 +122,7 @@ export function coilLossesW(
   return {
     coilW:
       params.coilResistanceOhm *
-      (duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * shortedA ** 2 + (1 - duty) * currents.chargeOnA ** 2),
+      (duty * SINE_MEAN_SQUARE_TO_MEAN_SQUARED * shortedA ** 2 + (1 - duty) * currents.chargeOnMeanSquareA2),
     rectifierW: params.rectifierDropV * currents.chargeA,
   };
 }

@@ -152,7 +152,8 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.textAlign = 'right';
     ctx.fillText('now', box.x + box.width, box.y + box.height + 4);
 
-    // The rectified mean, which is what the watch's electronics get to use.
+    // The rectified mean, k_e·ω, the figure the EMF is quoted by (D4). The
+    // capacitor charges from the peaks instead (D5), which the scope shows.
     const mean = emfV(rotorOmegaRadS(state), params);
     if (mean > 0) {
       const y = scopePoint(box, 0, 2, mean, scaleV).y;

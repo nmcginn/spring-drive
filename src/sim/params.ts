@@ -63,7 +63,7 @@ export const RECTIFIER_DROP_V = 0.2;
 
 export const IC_POWER_W = 25e-9;
 export const IC_BROWNOUT_V = 0.6;
-export const IC_START_V = 0.75;
+export const IC_START_V = 1;
 export const CAPACITANCE_F = 1e-7;
 
 // The comparison watch ---------------------------------------------------------
@@ -85,9 +85,9 @@ export const DETAILED_STEP_S = 1 / 4096;
  * finely the slow unwinding of the spring is followed.
  */
 export const AVERAGED_STEP_S = 1;
-export const REGULATOR_KP_PER_RAD = 0.02;
-export const REGULATOR_KI_PER_RAD_S = 0.02;
-export const REGULATOR_KD_PER_RAD_S = 0.004;
+export const REGULATOR_KP_PER_RAD = 0.03;
+export const REGULATOR_KI_PER_RAD_S = 0.03;
+export const REGULATOR_KD_PER_RAD_S = 0.005;
 
 /** A shock the size tests and widgets use: a quarter of the target speed. */
 export const SHOCK_DELTA_OMEGA_RAD_S = ROTOR_TARGET_OMEGA_RAD_S / 4;

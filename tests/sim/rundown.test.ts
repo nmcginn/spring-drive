@@ -28,8 +28,8 @@ const brownout = firstIndex((i) => !samples[i]!.icOn);
 const stall = firstIndex((i) => regimes[i] === 'stalled');
 
 describe('test 4: rundown', () => {
-  it('holds regulation from full wind for 70.645 h, the 254,321 s PHYSICS.md derives', () => {
-    expect(samples[regulationEnds - 1]!.timeS).toBe(254_321);
+  it('holds regulation from full wind for 70.651 h, the 254,342 s PHYSICS.md derives', () => {
+    expect(samples[regulationEnds - 1]!.timeS).toBe(254_342);
     expect(regimes.slice(0, regulationEnds).every((r) => r === 'regulated')).toBe(true);
   });
 
@@ -49,27 +49,34 @@ describe('test 4: rundown', () => {
     for (let i = 1; i < tail.length; i++) expect(tail[i]!.rotorOmegaRadS).toBeLessThan(tail[i - 1]!.rotorOmegaRadS);
   });
 
-  it('browns out the IC at 70.847 h, from the 6.441 rev/s where the capacitor falls to 0.6 V', () => {
-    expect(samples[brownout]!.timeS).toBe(255_048);
+  it('browns out the IC at 71.184 h, from the 4.275 rev/s where the capacitor falls to 0.6 V', () => {
+    expect(samples[brownout]!.timeS).toBe(256_264);
     const before = samples[brownout - 1]!;
-    // D5: (0.6 + 0.0030843/0.6 + 0.2) V × 8 rev/s per volt = 6.4411 rev/s.
-    // 0.0005: half a unit in the last digit PHYSICS.md shows.
-    expect(Math.abs(revS(icSustainOmegaRadS(P)) - 6.441)).toBeLessThan(0.0005);
+    // D5: where the rectifier, fed the sine, holds 0.6 V against the IC's
+    // 41.7 nA. 0.0005: half a unit in the last digit PHYSICS.md shows.
+    expect(Math.abs(revS(icSustainOmegaRadS(P)) - 4.275)).toBeLessThan(0.0005);
     // 0.003 rev/s: the last sample before brownout is up to one averaged step
     // before the threshold, and here the wheel slows by about 0.002 rev/s a
-    // second (from 8 to 6.44 rev/s in the 727 s between the two events).
+    // second (measured 0.0019 over the last one).
     expect(revS(before.rotorOmegaRadS)).toBeGreaterThan(revS(icSustainOmegaRadS(P)));
-    expect(revS(before.rotorOmegaRadS) - 6.441).toBeLessThan(0.003);
+    expect(revS(before.rotorOmegaRadS) - 4.275).toBeLessThan(0.003);
     // 1 mV: just above brownout, one step before it.
     expect(before.capVoltageV - P.icBrownoutV).toBeLessThan(1e-3);
   });
 
-  it('never restarts the IC after it browns out, because the spring can no longer reach 7.6 rev/s', () => {
+  it('never restarts the IC after it browns out, because the spring can no longer reach 6.11 rev/s', () => {
     expect(samples.slice(brownout).every((s) => !s.icOn)).toBe(true);
+    // D5: rid of the IC's load, the wheel speeds up to 5.557 rev/s, where the
+    // capacitor charges to the peak less the drop, 0.891 V, short of the
+    // 1.0 V restart. 1 mV and 0.001 rev/s: the digits PHYSICS.md shows.
+    const after = samples[brownout]!;
+    expect(Math.abs(revS(after.rotorOmegaRadS) - 5.557)).toBeLessThan(1e-3);
+    expect(Math.abs(after.capVoltageV - 0.891)).toBeLessThan(1e-3);
+    expect(after.capVoltageV).toBeLessThan(P.icStartV);
   });
 
-  it('stops the glide wheel at 73.724 h, at the 0.00374 of full wind where the drive falls below friction', () => {
-    expect(samples[stall]!.timeS).toBe(265_408);
+  it('stops the glide wheel at 73.775 h, at the 0.00374 of full wind where the drive falls below friction', () => {
+    expect(samples[stall]!.timeS).toBe(265_590);
     // Half a unit in the last digit PHYSICS.md shows.
     expect(Math.abs(windFraction(samples[stall]!.barrelAngleRad, P) - 0.00374)).toBeLessThan(5e-6);
     // D3: it stalls from the friction minimum, 2.24 rad/s, 0.3565 rev/s. The
@@ -116,7 +123,8 @@ describe('test 4: rundown', () => {
     expect(Math.abs(e.springJ - 0.5161)).toBeLessThan(0.0015);
     expect(Math.abs(e.trainLossJ - 0.2056)).toBeLessThan(0.0015);
     expect(Math.abs(e.frictionJ - 0.122)).toBeLessThan(0.0015);
-    expect(Math.abs(e.coilJ - 0.1785)).toBeLessThan(0.0015);
+    // Coil: the brake's 0.1790 J, and the charging path's share of the 0.0011 J.
+    expect(Math.abs(e.coilJ - 0.179)).toBeLessThan(0.0015);
     expect(Math.abs(e.icJ - 0.0064)).toBeLessThan(0.0001);
   });
 });

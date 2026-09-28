@@ -22,32 +22,111 @@ describe('the generator', () => {
   it('can brake with 1.989 × 10⁻⁷ N·m when fully shorted at 8 rev/s (D4)', () => {
     expect(maxBrakeTorqueNm(W0, P)).toBeCloseTo(1.989e-7, 10);
     const shorted = coilCurrents(W0, 0.8, 1, P);
-    expect(generatorTorqueNm(shorted, P)).toBeCloseTo(maxBrakeTorqueNm(W0, P), 18);
+    expect(generatorTorqueNm(shorted, W0, P)).toBeCloseTo(maxBrakeTorqueNm(W0, P), 18);
   });
 
   it("brakes in proportion to duty: τ = d·(π²/8)·k_e²·ω/R, PLAN.md's k_e²·ω/R_eff with R_eff = R/(d·π²/8)", () => {
-    // With the capacitor above the EMF, only the brake path conducts.
+    // With the capacitor above the EMF's peak, only the brake path conducts.
     for (const d of [0, 0.1, 0.5]) {
-      expect(generatorTorqueNm(coilCurrents(W0, 5, d, P), P)).toBeCloseTo(d * maxBrakeTorqueNm(W0, P), 18);
+      expect(generatorTorqueNm(coilCurrents(W0, 5, d, P), W0, P)).toBeCloseTo(d * maxBrakeTorqueNm(W0, P), 18);
     }
   });
 
-  it('charges only while the EMF exceeds the capacitor voltage plus the rectifier drop', () => {
-    expect(coilCurrents(W0, 0.81, 0, P).chargeA).toBe(0);
-    expect(coilCurrents(W0, 0.79, 0, P).chargeA).toBeCloseTo(0.01 / P.coilResistanceOhm, 15);
+  it("charges only while the EMF's peak exceeds the capacitor voltage plus the rectifier drop", () => {
+    // D5: the peak at 8 rev/s is π/2 V, so the rectifier stops conducting
+    // with the capacitor at π/2 − 0.2 = 1.3708 V, not at the mean's 0.8 V.
+    const top = peakEmfV(W0, P) - P.rectifierDropV;
+    expect(coilCurrents(W0, top + 1e-9, 0, P).chargeA).toBe(0);
+    expect(coilCurrents(W0, top - 1e-3, 0, P).chargeA).toBeGreaterThan(0);
+    expect(coilCurrents(W0, 0.8, 0, P).chargeA).toBeGreaterThan(0);
+    // Standing still, nothing flows, and nothing divides by the zero speed.
+    const still = coilCurrents(0, 0, 0, P);
+    expect(still.chargeA).toBe(0);
+    expect(generatorTorqueNm(still, 0, P)).toBe(0);
+  });
+
+  it('charges for the unshorted share of the time only', () => {
+    const open = coilCurrents(W0, 1.2, 0, P);
+    const shared = coilCurrents(W0, 1.2, 0.25, P);
+    expect(shared.chargeA).toBeCloseTo(0.75 * open.chargeA, 18);
+    expect(shared.chargeW).toBeCloseTo(0.75 * open.chargeW, 18);
   });
 
   it('turns every watt it takes from the wheel into coil heat, rectifier heat, or capacitor charge', () => {
     for (const [omega, v, d] of [
       [W0, 0.7, 0.1],
+      [W0, 1.34, 0.1],
       [W0 * 2, 0.3, 0.6],
       [W0 / 3, 0, 0],
     ] as const) {
       const c = coilCurrents(omega, v, d, P);
-      const mechanicalW = generatorTorqueNm(c, P) * omega;
+      const mechanicalW = generatorTorqueNm(c, omega, P) * omega;
       const { coilW, rectifierW } = coilLossesW(c, d, P);
       expect(coilW + rectifierW + v * c.chargeA).toBeCloseTo(mechanicalW, 18);
     }
+  });
+});
+
+describe('the charging path against the drawn waveform (D5, M7b)', () => {
+  /** Mean of f over one turn of the wheel, by the midpoint rule on n points. */
+  function meanOverTurn(f: (angleRad: number) => number, n = 1 << 16): number {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += f(((i + 0.5) * 2 * Math.PI) / n);
+    return sum / n;
+  }
+
+  /** The rectifier's current at one instant, A: (|e| − V − V_d)/R while |e| is above the threshold, else nothing. */
+  function rectifierA(angleRad: number, omega: number, capV: number, params: typeof P): number {
+    const e = Math.abs(instantaneousEmfV(angleRad, omega, params));
+    return Math.max(0, e - capV - params.rectifierDropV) / params.coilResistanceOhm;
+  }
+
+  // The integrand has a kink where the rectifier starts and stops conducting,
+  // so the midpoint rule's error goes as the square of the step, relative to
+  // the width of the conduction window. At 65,536 points a turn it measures
+  // under 2 parts in 10⁸, largest in the narrowest windows (into 1.34 V at
+  // 8 rev/s the rectifier conducts for 12% of each half cycle). 10⁻⁶ leaves
+  // room for that and says the closed forms are right, not approximately so.
+  const cases = [
+    { omega: W0, capV: 1.34, polePairs: 1 },
+    { omega: W0, capV: 0.8, polePairs: 1 },
+    { omega: W0 / 2, capV: 0.5, polePairs: 1 },
+    { omega: 3 * W0, capV: 2, polePairs: 1 },
+    { omega: W0, capV: 1.2, polePairs: 2 },
+  ];
+
+  it.each(cases)(
+    'at $omega rad/s into $capV V ($polePairs pole pairs), has the mean current the model charges with',
+    ({ omega, capV, polePairs }) => {
+      const params = { ...P, generatorPolePairs: polePairs };
+      const integrated = meanOverTurn((a) => rectifierA(a, omega, capV, params));
+      expect(Math.abs(integrated / coilCurrents(omega, capV, 0, params).chargeA - 1)).toBeLessThan(1e-6);
+    },
+  );
+
+  it.each(cases)(
+    'at $omega rad/s into $capV V, takes from the wheel, and heats the coil, what the drawn waveform does',
+    ({ omega, capV, polePairs }) => {
+      const params = { ...P, generatorPolePairs: polePairs };
+      const c = coilCurrents(omega, capV, 0, params);
+      // Power the EMF delivers, |e|·i, over ω: the torque on the wheel.
+      const powerW = meanOverTurn(
+        (a) => Math.abs(instantaneousEmfV(a, omega, params)) * rectifierA(a, omega, capV, params),
+      );
+      expect(Math.abs(powerW / omega / generatorTorqueNm(c, omega, params) - 1)).toBeLessThan(1e-6);
+      const heatW = meanOverTurn((a) => params.coilResistanceOhm * rectifierA(a, omega, capV, params) ** 2);
+      expect(Math.abs(heatW / coilLossesW(c, 0, params).coilW - 1)).toBeLessThan(1e-6);
+    },
+  );
+
+  it('charges far harder than the mean EMF alone would: at 8 rev/s into 0.7 V, 2.69× the (e − V − V_d)/R the old model used', () => {
+    // The mean-EMF model drove 1.0 − 0.7 − 0.2 = 0.1 V through R. The sine,
+    // peaking at 1.571 V, conducts from α = asin(0.9/1.571) = 0.610 rad to
+    // π − α, and averages (2·1.571·cos α − 0.9·(π − 2α))/π = 0.269 V through R.
+    const meanEmfA = (emfV(W0, P) - 0.7 - P.rectifierDropV) / P.coilResistanceOhm;
+    const ratio = coilCurrents(W0, 0.7, 0, P).chargeA / meanEmfA;
+    // Three digits, as the title states.
+    expect(Math.abs(ratio - 2.69)).toBeLessThan(0.005);
   });
 });
 

@@ -60,17 +60,17 @@ describe('loop: opening', () => {
   it('opens locked at 8 rev/s on the steady full-wind duty, with the readouts PHYSICS.md gives there', () => {
     const s = initialLoopState(P);
     expect(status(s)).toBe('locked');
-    // D4: 11.2 % of the time shorted, which is 0.112 × 198.9 nN·m of brake.
+    // D4: 11.2 % of the time shorted, which is 0.1120 × 198.9 nN·m of brake.
     expect(values(s)).toEqual([
       '8.000\u202frev/s',
       '0.0°',
       '11.2\u202f%',
-      '22.2\u202fnN·m',
+      '22.3\u202fnN·m',
       '0.0\u202fs',
       '0.0\u202fms',
       '100.0\u202f%',
     ]);
-    expect(currentDuty(s) * maxBrakeTorqueNm(W0, P) * 1e9).toBeCloseTo(22.2, 1);
+    expect(currentDuty(s) * maxBrakeTorqueNm(W0, P) * 1e9).toBeCloseTo(22.3, 1);
   });
 
   it('opens with the scope already full of the settled state: flat across the whole window', () => {
@@ -114,18 +114,18 @@ describe('loop: a knock', () => {
   // Knocks land on a reference tick, a whole second in, which is where they
   // swing furthest (PHYSICS.md, D12; tests/sim/disturbance.test.ts has the
   // range over the period).
-  it('a knock forward on a tick swings the phase error up to +55.6° and the duty above the steady 11.2 %, then relocks within 3.0 s', () => {
+  it('a knock forward on a tick swings the phase error up to +46.7° and the duty above the steady 11.2 %, then relocks within 3.0 s', () => {
     const start = knock(simFor(initialLoopState(P), 1), 1, true, P);
     const t0 = start.sim.timeS;
     const s = frames(start, 360);
     const { min, max } = phaseRangeDeg(s, t0);
-    // PHYSICS.md, D12: +55.6° and \u221211.3°, the extremes at every sim step. The
+    // PHYSICS.md, D12: +46.7° and \u221215.7°, the extremes at every sim step. The
     // scope samples every 1/64 s; near an extreme the phase error barely
     // moves, so a sample lands within 0.2° of it.
-    expect(max).toBeGreaterThan(55.4);
-    expect(max).toBeLessThanOrEqual(55.65);
-    expect(min).toBeGreaterThanOrEqual(-11.35);
-    expect(min).toBeLessThan(-11.1);
+    expect(max).toBeGreaterThan(46.5);
+    expect(max).toBeLessThanOrEqual(46.7);
+    expect(min).toBeGreaterThanOrEqual(-15.75);
+    expect(min).toBeLessThan(-15.5);
     const duties = s.history.filter((p) => p.timeS >= t0).map((p) => p.duty);
     expect(Math.max(...duties)).toBeGreaterThan(0.15);
     // Test 6: relock within 3.0 s, and held from then on.
@@ -133,18 +133,18 @@ describe('loop: a knock', () => {
     expect(s.lockedSinceS! - t0).toBeLessThanOrEqual(3.0);
   });
 
-  it('a knock back on a tick swings the phase error down to \u221267.3° and the duty below the steady 11.2 %, then relocks within 3.0 s', () => {
+  it('a knock back on a tick swings the phase error down to \u221265.9° and the duty below the steady 11.2 %, then relocks within 3.0 s', () => {
     const start = knock(simFor(initialLoopState(P), 1), -1, true, P);
     const t0 = start.sim.timeS;
     const s = frames(start, 360);
     const { min, max } = phaseRangeDeg(s, t0);
-    // PHYSICS.md, D12: \u221267.3° and +14.3°, sampled as above.
-    expect(min).toBeLessThan(-67.1);
-    expect(min).toBeGreaterThanOrEqual(-67.35);
-    expect(max).toBeGreaterThan(14.1);
-    expect(max).toBeLessThanOrEqual(14.35);
+    // PHYSICS.md, D12: \u221265.9° and +20.4°, sampled as above.
+    expect(min).toBeLessThan(-65.7);
+    expect(min).toBeGreaterThanOrEqual(-65.95);
+    expect(max).toBeGreaterThan(20.2);
+    expect(max).toBeLessThanOrEqual(20.45);
     const duties = s.history.filter((p) => p.timeS >= t0).map((p) => p.duty);
-    expect(Math.min(...duties)).toBeLessThan(0.06);
+    expect(Math.min(...duties)).toBeLessThan(0.04);
     expect(status(s)).toBe('locked');
     expect(s.lockedSinceS! - t0).toBeLessThanOrEqual(3.0);
   });
@@ -163,7 +163,7 @@ describe('loop: a knock', () => {
     expect(s.sim.timeS - before.sim.timeS).toBeCloseTo(STILL_RESPONSE_S, 3);
     expect(s.sweepRad).toBe(0);
     expect(status(s)).toBe('locked');
-    expect(phaseRangeDeg(s, before.sim.timeS).max).toBeGreaterThan(55.4);
+    expect(phaseRangeDeg(s, before.sim.timeS).max).toBeGreaterThan(46.5);
     // The scope ends now and still covers its window.
     expect(s.history.at(-1)!.timeS).toBeCloseTo(s.sim.timeS, 2);
     expect(s.history.at(-1)!.timeS - s.history[0]!.timeS).toBeGreaterThanOrEqual(SCOPE_WINDOW_S);
@@ -187,27 +187,30 @@ describe('loop: regulation off and on', () => {
     const s = simFor(off, 10);
     // Test 1 and D3: 30.61 rev/s at full wind. The approach is slower than the
     // wheel's own 0.625 s time constant, because while it speeds up it also
-    // charges the capacitor (D5); ten seconds is within 0.01 rev/s.
+    // charges the capacitor toward 5.8 V (D5, D12); ten seconds is within
+    // 0.03 rev/s (measured 30.587).
     expect(radSToRevS(s.sim.rotorOmegaRadS)).toBeCloseTo(30.61, 1);
     expect(s.history.filter((p) => p.timeS > off.sim.timeS).every((p) => p.duty === 0)).toBe(true);
     expect(values(s)[2]).toBe('0.0\u202f%');
     expect(values(s)[3]).toBe('0.0\u202fnN·m');
   });
 
-  it('off, the IC still counts, so the phase error it would act on grows by about 22.6 turns a second', () => {
+  it('off, the IC still counts, so the phase error it would act on grows by about 22.3 turns a second, 5 s in', () => {
     const off = simFor(setRegulation(initialLoopState(P), false, true, P), 5);
     const later = simFor(off, 1);
     const turnsPerS = (phaseErrorRad(later.sim, P) - phaseErrorRad(off.sim, P)) / TAU;
-    // 30.61 \u2212 8 rev/s; the wheel is still gaining the last 0.01 rev/s.
-    expect(turnsPerS).toBeCloseTo(22.6, 1);
+    // D12: 5 to 6 s after switching off the wheel turns at about 30.3 rev/s,
+    // still charging the capacitor on its way to 30.6, so 22.3 turns a second
+    // (measured 22.28), heading for 22.6.
+    expect(turnsPerS).toBeCloseTo(22.3, 1);
     expect(values(later)[1]).toMatch(/^\+\d+\.\d\u202fturns$/);
   });
 
-  it('back on, the reference restarts from the wheel, and it relocks 4.75 s later with the hands still ahead', () => {
+  it('back on, the reference restarts from the wheel, and it relocks 4.25 s later with the hands still ahead', () => {
     const off = simFor(setRegulation(initialLoopState(P), false, true, P), 3);
     const gained = handsAheadS(off, P);
-    // PHYSICS.md, D12: three seconds of runaway from 8 rev/s put the hands 6.07 s ahead.
-    expect(gained).toBeCloseTo(6.07, 2);
+    // PHYSICS.md, D12: three seconds of runaway from 8 rev/s put the hands 5.31 s ahead.
+    expect(gained).toBeCloseTo(5.31, 2);
     const on = setRegulation(off, true, true, P);
     expect(phaseErrorRad(on.sim, P)).toBe(0);
     expect(on.events.at(-1)?.kind).toBe('on');
@@ -216,7 +219,7 @@ describe('loop: regulation off and on', () => {
     expect(status(s)).toBe('locked');
     // PHYSICS.md, D12. Lock is judged at reference ticks, which after the
     // restart fall every 0.125 s from it, so this is exact.
-    expect(s.lockedSinceS! - on.sim.timeS).toBe(4.75);
+    expect(s.lockedSinceS! - on.sim.timeS).toBe(4.25);
     // The loop repays the phase error since the restart, so the hands end
     // with exactly what the runaway gained: to 0.1 ms, less than the 1.25 ms
     // a locked phase error can be (LOCK_PHASE_TOLERANCE_RAD at 8 rev/s).
@@ -224,16 +227,18 @@ describe('loop: regulation off and on', () => {
     expect(values(s)[5]).toMatch(/^\+\d+\.\d\d\u202fs$/);
   });
 
-  it('back on after a runaway, holds 11.5 % until the overcharged capacitor drains, then the steady 11.2 %', () => {
+  it('back on after a runaway, holds 11.5 % until the overcharged capacitor drains, about 53 s, then the steady 11.2 %', () => {
     const on = setRegulation(simFor(setRegulation(initialLoopState(P), false, true, P), 3), true, true, P);
-    // D12: unbraked, the capacitor charged far above the 0.80 V it settles at
-    // regulated (no clamp, D5). Until it drains the wheel carries no charging
-    // load, so the brake takes that too.
+    // D12: unbraked, the capacitor charged to 5.33 V, far above the 1.34 V it
+    // settles at regulated (no clamp, D5). Until it drains the wheel carries
+    // no charging load, so the brake takes that too.
     const soon = simFor(on, 10);
     expect(soon.sim.capVoltageV).toBeGreaterThan(2);
     expect(currentDuty(soon)).toBeCloseTo(0.115, 3);
-    const later = simFor(soon, 40);
-    expect(later.sim.capVoltageV).toBeCloseTo(0.7956, 3);
+    // Still draining at 50 s: ½C(5.33² − 1.34²)/25 nW = 53 s.
+    expect(simFor(soon, 40).sim.capVoltageV).toBeGreaterThan(1.5);
+    const later = simFor(soon, 50);
+    expect(later.sim.capVoltageV).toBeCloseTo(1.34, 3);
     expect(currentDuty(later)).toBeCloseTo(0.112, 3);
   });
 
@@ -279,7 +284,7 @@ describe('loop: awkward frames', () => {
 
 describe('loop: a run-down spring', () => {
   it('too weak to hold 8 rev/s, never locks, and the IC browns out: no reference, no brake, and every readout keeps its unit', () => {
-    // Regulation ends at fraction 0.018824 (D7); the IC browns out by 0.016301.
+    // Regulation ends at fraction 0.018741 (D7); the IC browns out by 0.013122.
     let s = initialLoopState(P, { windFraction: 0.012 });
     expect(status(s)).not.toBe('locked');
     s = advanceLoop(s, MAX_FRAME_DT_S, P);

@@ -63,7 +63,7 @@ export const SCENARIOS: Readonly<Record<string, ScenarioDefinition>> = Object.fr
     run: detailed(1, true, 30),
   },
   runaway: {
-    description: 'Detailed, 30 s: the same, with the brake disabled. It settles near 30.6 rev/s (test 1).',
+    description: 'Detailed, 30 s: the same, with the brake disabled. It reaches 30.6 rev/s after about 15 s (test 1).',
     run: detailed(1, false, 30),
   },
   'rate-24h': {

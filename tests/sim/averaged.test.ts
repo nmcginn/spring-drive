@@ -4,6 +4,7 @@ import {
   averagedFromDetailed,
   createAveragedState,
   driveTorqueNm,
+  icSustainOmegaRadS,
   meanDriveTorqueNm,
   operatingPoint,
   referenceOmegaRadS,
@@ -14,7 +15,7 @@ import {
   steadyCapVoltageV,
 } from '../../src/sim/averaged.ts';
 import { advanceDetailed, advanceSteps, createState, phaseErrorRad } from '../../src/sim/detailed.ts';
-import { emfV } from '../../src/sim/generator.ts';
+import { coilCurrents, generatorTorqueNm, maxBrakeTorqueNm } from '../../src/sim/generator.ts';
 import { fullWindAngleRad, mainspringEnergyJ, windBarrel } from '../../src/sim/mainspring.ts';
 import { capEnergyJ } from '../../src/sim/power.ts';
 import { frictionTorqueNm } from '../../src/sim/rotor.ts';
@@ -46,47 +47,72 @@ function trace(state: AveragedState, controls: typeof BRAKE, durationS: number, 
 describe('averaged operating points', () => {
   it.each([
     [1, 0.112],
-    [0.5, 0.071],
-    [0.03, 0.03],
+    [0.5, 0.0713],
+    [0.03, 0.0306],
   ])('settles at %s of full wind into regulation, at the steady duty PHYSICS.md derives, %s', (wind, duty) => {
     const s = createAveragedState(P, { windFraction: wind });
     expect(s.regime).toBe('regulated');
     expect(s.rotorOmegaRadS).toBe(W0);
     expect(s.icOn).toBe(true);
-    // 2%: PHYSICS.md rounds the duty to three decimals, which is 1.7% of 0.03.
-    expect(Math.abs(s.duty / duty - 1)).toBeLessThan(0.02);
+    // 0.5%: PHYSICS.md rounds the duty to three significant figures, which is
+    // at most 0.45% of it (0.0306 for 0.030567).
+    expect(Math.abs(s.duty / duty - 1)).toBeLessThan(0.005);
   });
 
-  it('holds the capacitor at the 0.7956 V PHYSICS.md derives, with the full-wind duty, in D5', () => {
+  it('holds the capacitor at the 1.3400 V PHYSICS.md derives, with the full-wind duty, in D5', () => {
     // 0.1 mV: the rounding PHYSICS.md shows. (At half wind the duty is lower,
-    // the capacitor charges for longer, and it sits 0.19 mV higher.)
-    expect(Math.abs(createAveragedState(P, { windFraction: 1 }).capVoltageV - 0.7956)).toBeLessThan(1e-4);
+    // the capacitor charges for longer, and it sits 0.9 mV higher.)
+    expect(Math.abs(createAveragedState(P, { windFraction: 1 }).capVoltageV - 1.34)).toBeLessThan(1e-4);
   });
 
   it('solves the regulated point so that both the torques and the capacitor currents balance', () => {
-    const driveNm = driveTorqueNm(0.7 * fullWindAngleRad(P), P);
-    const reg = regulatedPoint(driveNm, P)!;
-    const ke = P.generatorKeVSRad;
-    // D4: the sine's mean square over R, π²/8 times the rectified mean's square.
-    const brakeNm = (reg.duty * (Math.PI ** 2 / 8) * ke * ke * W0) / P.coilResistanceOhm;
-    const torqueNm = frictionTorqueNm(W0, P) + brakeNm + ke * reg.chargeA;
-    // 10⁻¹²: the quadratic is solved in closed form, so only float rounding remains.
-    expect(Math.abs(torqueNm / driveNm - 1)).toBeLessThan(1e-12);
-    const chargedA = ((1 - reg.duty) * (emfV(W0, P) - P.rectifierDropV - reg.capVoltageV)) / P.coilResistanceOhm;
-    expect(Math.abs(chargedA / (P.icPowerW / reg.capVoltageV) - 1)).toBeLessThan(1e-9);
+    // Checked with the generator's own formulas, which generator.test.ts
+    // checks against the drawn waveform, not with the solver's.
+    for (const wind of [1, 0.7, 0.03]) {
+      const driveNm = driveTorqueNm(wind * fullWindAngleRad(P), P);
+      const reg = regulatedPoint(driveNm, P)!;
+      const c = coilCurrents(W0, reg.capVoltageV, reg.duty, P);
+      const torqueNm = frictionTorqueNm(W0, P) + generatorTorqueNm(c, W0, P);
+      // 10⁻¹²: the solver closes its bracket to adjacent doubles, so only
+      // float rounding remains.
+      expect(Math.abs(torqueNm / driveNm - 1)).toBeLessThan(1e-12);
+      expect(Math.abs(c.chargeA / (P.icPowerW / reg.capVoltageV) - 1)).toBeLessThan(1e-12);
+      expect(reg.chargeA).toBe(P.icPowerW / reg.capVoltageV);
+    }
   });
 
-  it('has no regulated point when the spring cannot reach 8 rev/s', () => {
+  it('has no regulated point when the spring cannot reach 8 rev/s, or when it could overpower the full brake', () => {
     expect(regulatedPoint(frictionTorqueNm(W0, P), P)).toBeNull();
+    expect(regulatedPoint(frictionTorqueNm(W0, P) + 1.1 * maxBrakeTorqueNm(W0, P), P)).toBeNull();
   });
 
-  it('puts the capacitor on the upper, stable root, and finds no root when the EMF is too low for the IC', () => {
+  it('puts the capacitor on the upper, stable root of its balance', () => {
     const v = steadyCapVoltageV(W0, 0, P)!;
-    const chargeA = (emfV(W0, P) - P.rectifierDropV - v) / P.coilResistanceOhm;
-    expect(Math.abs(chargeA * v - P.icPowerW) / P.icPowerW).toBeLessThan(1e-9);
-    expect(v).toBeGreaterThan((emfV(W0, P) - P.rectifierDropV) / 2);
+    const heldW = (volts: number) => coilCurrents(W0, volts, 0, P).chargeA * volts;
+    // 10⁻¹²: solved to adjacent doubles.
+    expect(Math.abs(heldW(v) / P.icPowerW - 1)).toBeLessThan(1e-12);
+    // Stable: a little higher and the coil gives less than the IC takes, so
+    // the capacitor falls back; a little lower, and it gives more.
+    expect(heldW(v + 1e-3)).toBeLessThan(P.icPowerW);
+    expect(heldW(v - 1e-3)).toBeGreaterThan(P.icPowerW);
+    // D5: 1.3424 V at 8 rev/s with the brake off, 29 mV under the peak less
+    // the drop. 0.1 mV: the digits PHYSICS.md shows.
+    expect(Math.abs(v - 1.3424)).toBeLessThan(1e-4);
+  });
+
+  it('finds no capacitor balance when the EMF is too low for the IC, or the coil is shorted all the time', () => {
     expect(steadyCapVoltageV(1, 0, P)).toBeNull();
     expect(steadyCapVoltageV(W0, 1, P)).toBeNull();
+    // Just below the slowest speed that sustains the IC, the upper root is
+    // under brownout; at it, the root is brownout.
+    const sustain = icSustainOmegaRadS(P);
+    expect(steadyCapVoltageV(sustain * 0.999, 0, P) ?? 0).toBeLessThan(P.icBrownoutV);
+    expect(Math.abs(steadyCapVoltageV(sustain, 0, P)! - P.icBrownoutV)).toBeLessThan(1e-9);
+  });
+
+  it('holds the IC down to 4.275 rev/s with the brake off, where the capacitor settles at 0.6 V (D5)', () => {
+    // 0.0005 rev/s: half a unit in the last digit PHYSICS.md shows.
+    expect(Math.abs(revS(icSustainOmegaRadS(P)) - 4.275)).toBeLessThan(5e-4);
   });
 
   it('runs away at the 30.61 rev/s of test 1 with the brake disabled at full wind', () => {
@@ -123,14 +149,17 @@ describe('averaged regimes and their events', () => {
     expect(Math.abs(after.rotorAngleRad - behind.rotorAngleRad - (W0 + TAU))).toBeLessThan(1e-9);
   });
 
-  describe('holding back a wheel far ahead: the brake re-enabled after 10 s of runaway, without realigning', () => {
-    const d10 = advanceDetailed(createState(P), P, NO_BRAKE, 10).state;
-    const start = averagedFromDetailed(d10, P);
-    const steps = trace(start, BRAKE, 40, 0.01);
+  describe('holding back a wheel far ahead: the brake re-enabled after 30 s of runaway, without realigning', () => {
+    // 30 s: the wheel is 642 turns ahead, which takes the held-back wheel
+    // longer to give back (about 97 s) than the capacitor, charged to 5.8 V by
+    // the runaway, can carry the IC (about 66 s). So it browns out first.
+    const d30 = advanceDetailed(createState(P), P, NO_BRAKE, 30).state;
+    const start = averagedFromDetailed(d30, P);
+    const steps = trace(start, BRAKE, 80, 0.01);
     const holding = steps.filter((x) => x.regime === 'holding-back');
     const endS = holding.at(-1)!.timeS;
 
-    it('brakes fully, down to the 1.194 rev/s where drive meets friction plus the shorted coil', () => {
+    it('brakes fully, down to the 1.193 rev/s where drive meets friction plus the shorted coil', () => {
       const s = holding[100]!.state;
       expect(s.duty).toBe(1);
       const ke = P.generatorKeVSRad;
@@ -139,19 +168,29 @@ describe('averaged regimes and their events', () => {
       // 10⁻⁶: the point balances the mean drive over its step, and this is
       // the drive at the step's end; on the curve's steep top they differ by 5 × 10⁻⁸.
       expect(Math.abs(loadNm / driveTorqueNm(s.barrelAngleRad, P) - 1)).toBeLessThan(1e-6);
-      // What detailed mode measures over the same stretch, to the digits shown.
-      expect(Math.abs(revS(s.rotorOmegaRadS) - 1.194)).toBeLessThan(5e-4);
+      // At exactly full wind it is 1.195 rev/s (PHYSICS.md, Model
+      // predictions): (3.241 × 10⁻⁸ − 1.5 × 10⁻⁹) ÷ (1.6 × 10⁻¹⁰ + 3.958 × 10⁻⁹)
+      // = 7.506 rad/s. The 30 s runaway spent 4.3 × 10⁻⁴ of the wind, which on
+      // the curve's steep top lowers the drive by 0.13%, and the speed with
+      // it: 1.1929 rev/s here, measured.
+      expect(Math.abs(revS(s.rotorOmegaRadS) - 1.193)).toBeLessThan(5e-4);
+      const fullWind = { ...createAveragedState(P), phaseErrorRad: 1 };
+      const held = operatingPoint(fullWind, driveTorqueNm(fullWind.barrelAngleRad, P), P, BRAKE);
+      expect(held.regime).toBe('holding-back');
+      expect(Math.abs(revS(held.omegaRadS) - 1.195)).toBeLessThan(5e-4);
     });
 
     it('runs the IC from the capacitor until it browns out, when the energy above 0.6 V is spent', () => {
-      const holdUpS = (capEnergyJ(d10.capVoltageV, P) - capEnergyJ(P.icBrownoutV, P)) / P.icPowerW;
+      const holdUpS = (capEnergyJ(d30.capVoltageV, P) - capEnergyJ(P.icBrownoutV, P)) / P.icPowerW;
       // One 0.01 s trace step: the brownout falls somewhere inside it.
-      expect(Math.abs(endS - (10 + holdUpS))).toBeLessThanOrEqual(0.01);
+      expect(Math.abs(endS - (30 + holdUpS))).toBeLessThanOrEqual(0.01);
     });
 
     it('browns out within one reference period of detailed mode, whose regulator only brakes at its next tick', () => {
-      let x = d10;
-      while (x.regulator.icOn) x = advanceSteps(x, P, BRAKE, 64);
+      let x = d30;
+      // Bounded, so a model that never browns out fails rather than hangs.
+      while (x.regulator.icOn && x.timeS < endS + 5) x = advanceSteps(x, P, BRAKE, 64);
+      expect(x.regulator.icOn).toBe(false);
       const lagS = x.timeS - endS;
       expect(lagS).toBeGreaterThan(0);
       expect(lagS).toBeLessThanOrEqual(REFERENCE_PERIOD_S + 0.02);
@@ -165,6 +204,41 @@ describe('averaged regimes and their events', () => {
     });
   });
 
+  describe('holding back after only 10 s of runaway: the wheel falls back onto the reference before the capacitor runs out', () => {
+    // 190 turns ahead, given back at 8 − 1.195 rev/s, takes about 28 s. The
+    // capacitor, charged to 5.79 V by the runaway, carries the IC for about
+    // 66 s (½C(V² − V_b²)/P), so the hold-back ends on the reference, not in
+    // a brownout. Before M7b the capacitor reached only 3.6 V, and the same
+    // 10 s runaway browned out.
+    const d10 = advanceDetailed(createState(P), P, NO_BRAKE, 10).state;
+    const steps = trace(averagedFromDetailed(d10, P), BRAKE, 30, 0.01);
+    const holding = steps.filter((x) => x.regime === 'holding-back');
+
+    it('holds back, then regulates, with the IC on throughout', () => {
+      expect(holding.length).toBeGreaterThan(0);
+      expect(steps.every((x) => x.state.icOn)).toBe(true);
+      const after = steps.find((x) => x.timeS > holding.at(-1)!.timeS)!;
+      expect(after.regime).toBe('regulated');
+      expect(after.state.phaseErrorRad).toBe(0);
+    });
+
+    it('ends the hold-back when the turns gained are given back, at the gap between the speeds', () => {
+      const gapRadS = W0 - holding[0]!.state.rotorOmegaRadS;
+      const expectedS = averagedFromDetailed(d10, P).phaseErrorRad / gapRadS;
+      // 0.05 s: the held-back speed falls very slightly as the spring unwinds
+      // (a part in 10⁵ over 28 s), and the trace step is 0.01 s.
+      expect(Math.abs(holding.at(-1)!.timeS - 10 - expectedS)).toBeLessThan(0.05);
+    });
+
+    it('never browns out in detailed mode either', () => {
+      let x = d10;
+      for (let t = 0; t < 30; t += 1) {
+        x = advanceDetailed(x, P, BRAKE, 1).state;
+        expect(x.regulator.icOn).toBe(true);
+      }
+    });
+  });
+
   it('lets the phase error grow with the brake disabled, at the gap between wheel and reference', () => {
     const s0 = settle(createAveragedState(P), P, NO_BRAKE);
     const s1 = advanceAveraged(s0, P, NO_BRAKE, 2);
@@ -172,21 +246,21 @@ describe('averaged regimes and their events', () => {
     expect(Math.abs(s1.phaseErrorRad - 2 * (s0.rotorOmegaRadS - W0)) / s1.phaseErrorRad).toBeLessThan(1e-4);
   });
 
-  it('keeps a stalled IC running from the capacitor for the 0.55 s hold-up PHYSICS.md derives, then browns out', () => {
+  it('keeps a stalled IC running from the capacitor for the 2.88 s hold-up PHYSICS.md derives, then browns out', () => {
     const stalled: AveragedState = {
       ...createAveragedState(P, { windFraction: 0.5 }),
       barrelAngleRad: 0,
       rotorOmegaRadS: 0,
     };
-    const steps = trace(stalled, BRAKE, 1, 0.01);
+    const steps = trace(stalled, BRAKE, 3, 0.01);
     expect(steps[0]!.regime).toBe('stalled');
     expect(steps[0]!.state.icOn).toBe(true);
     const off = steps.find((x) => !x.state.icOn)!;
-    // PHYSICS.md, D5: 0.55 s from the operating voltage, at the IC's average
-    // draw. The IC draws constant power, so the model's figure is exact:
-    // ½C(V² − V_b²)/P. One trace step of slack either side.
+    // PHYSICS.md, D5: 2.88 s from the operating voltage at half wind. The IC
+    // draws constant power, so the model's figure is exact: ½C(V² − V_b²)/P.
+    // One trace step of slack either side.
     const holdUpS = (capEnergyJ(stalled.capVoltageV, P) - capEnergyJ(P.icBrownoutV, P)) / P.icPowerW;
-    expect(Math.abs(holdUpS - 0.55)).toBeLessThan(0.02);
+    expect(Math.abs(holdUpS - 2.88)).toBeLessThan(0.005);
     expect(Math.abs(off.timeS - holdUpS)).toBeLessThanOrEqual(0.01);
     expect(off.state.rotorOmegaRadS).toBe(0);
   });
