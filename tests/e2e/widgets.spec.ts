@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { THEMES } from '../../src/runtime/palette.ts';
 import { expect, expectStill, expectTicking, frames, press, pressAt, readout, test, ticks } from './fixtures.ts';
 
@@ -497,33 +497,39 @@ test.describe('loop', () => {
   });
 
   test('a knock, its primary control, is pushed back and lock returns within 3 s', async ({ page, snap }) => {
+    // The screenshot should catch the response part way through. How far a
+    // knock has got depends on page time, so the page's clock is stopped for
+    // the knock and stepped a fixed 160 ms on: wall-clock pacing (a poll, a
+    // slow CI frame rate) once let the pause land where the phase error, which
+    // rings through zero on its way back, read 0.1°. Where the knock falls
+    // against the 8 Hz reference still varies, but at 0.13 to 0.25 s after it
+    // every landing point is unlocked with |phase error| over 17° (either sign
+    // of knock, swept in 1/200ths of a reference period), and the earliest
+    // relock is 0.73 s. The size of the swing is left to the logic tests
+    // (tests/widgets/loop-logic.test.ts).
+    await page.clock.install();
     await open(page, 'loop', LOOP);
     const pause = page.getByRole('button', { name: 'Pause animations' });
     const resume = page.getByRole('button', { name: 'Resume animations' });
-    await press(faster(page));
-    // The knock is judged at the next reference tick, an eighth of a second on.
-    await expect.poll(() => lockedFor(page)).toBe(0);
-    // Stop part way through the response for the screenshot. Where it stops
-    // depends on the frame rate, so the size of the error is left to the
-    // logic tests (tests/widgets/loop-logic.test.ts); here it is only off zero.
-    await frames(page, 15);
-    await press(pause);
-    await expectStill(page, LOOP);
-    expect(Math.abs(await value(page, 'Phase error'))).toBeGreaterThan(0.1);
-    await snap(page, 'loop-knock-faster');
-    await press(resume);
+    const knockAndHold = async (knockButton: Locator, name: string) => {
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 100);
+      await press(knockButton);
+      await page.clock.runFor(160);
+      await press(pause);
+      await page.clock.resume();
+      await expectStill(page, LOOP);
+      expect(await lockedFor(page)).toBe(0);
+      expect(Math.abs(await value(page, 'Phase error'))).toBeGreaterThan(10);
+      await snap(page, name);
+      await press(resume);
+    };
+
+    await knockAndHold(faster(page), 'loop-knock-faster');
     // Test 6 (PHYSICS.md): relock within 3.0 s. The poll allows for a slow CI frame rate.
     await expect.poll(() => lockedFor(page), { timeout: 10_000 }).toBeGreaterThan(0.5);
     await expect(readout(page, LOOP, 'Glide wheel speed')).toHaveText(/^(7\.99\d|8\.00\d)\u202frev\/s$/);
 
-    await press(slower(page));
-    await expect.poll(() => lockedFor(page)).toBe(0);
-    await frames(page, 15);
-    await press(pause);
-    await expectStill(page, LOOP);
-    expect(Math.abs(await value(page, 'Phase error'))).toBeGreaterThan(0.1);
-    await snap(page, 'loop-knock-slower');
-    await press(resume);
+    await knockAndHold(slower(page), 'loop-knock-slower');
     await expect.poll(() => lockedFor(page), { timeout: 10_000 }).toBeGreaterThan(0.5);
   });
 
