@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M7b (peak-charging rectifier), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, and M7 as #13.
-- Last session: 2026-09-27, M7b: the capacitor charges from the sine's peaks, with decision 37. No new parameter; `IC_START_V` and the three regulator gains changed (PHYSICS.md, change log).
-- Open PRs waiting on review: M7b.
-- Next up: M8 (`tri-synchro`), which needs M7b.
+- Current milestone: M8 (`tri-synchro`), in review as #15. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, and M7b as #14.
+- Last session: 2026-09-28, M8: the tri-synchro widget, with derivation D13, `powerFlows` in averaged mode, and decision 38. No new parameter.
+- Open PRs waiting on review: M8 (#15).
+- Next up: M9 (polish), which needs M3 to M8 merged. It can stack on #15 while that is in review.
 
 ## Open questions for the maintainer
 
@@ -126,7 +126,7 @@ Questions the nightly loop could not answer without guessing at physics, archite
 
 ## M8: `tri-synchro` widget
 
-- [ ] **The full system with time acceleration, power reserve, and rundown to brownout.**
+- [x] **The full system with time acceleration, power reserve, and rundown to brownout.**
   *Needs:* M2, M7b (the brownout it shows must be the waveform's; decision 35).
   *Decided:* the model's crystal is exact, so a rate readout, if the widget has one, shows 0 s/day while regulated and says beside it that the model's crystal is perfect and the 9R's ±15 s/month allows for a real one. No crystal offset, hidden or as a control (decision 26).
   *Acceptance:* the widget done-when below.
@@ -164,6 +164,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M8: `tri-synchro` widget** (2026-09-28). The whole movement from full wind to a stop, in averaged mode, sped up: a minute, ten minutes, an hour, or two hours a second, from a slider, and a Skip button that jumps six hours, which is also how a reduced-motion reader steps through the reserve. A dial whose hands are geared to the glide wheel, with faint true-time hands; a panel of where the power reaching the wheel goes (at full wind 1.629 µW: 29.4% friction, 68.8% brake, 1.8% electricity); a power reserve gauge that reads the barrel; and a chart over 78 h of speed, supply, and brake duty. Regulation ends at 70 h 39 min, the IC browns out at 71 h 11 min at 4.275 rev/s (M7b's waveform brownout), and the wheel stops at 73 h 46 min with its hands at 71.73 h, 2.04 h behind; each event is marked on the chart and named beneath it. Readouts include the rate, 0.0 s/day while regulated, with the note decision 26 asks for. `src/sim/averaged.ts` gains `powerFlows`, checked to balance in every regime and against the ledger. PHYSICS.md gains D13 and five predictions, with no new parameter. Decision 38.
 
 - **M7b: Peak-charging rectifier** (2026-09-27). The capacitor charges from the D9 sine through a full-wave rectifier with its drop and the coil's resistance, conducting only near the peaks, so it charges toward the peak less the drop. The mean current, its mean square, and the power drawn have closed forms over a cycle (`src/sim/rectifier.ts`), which both modes use through `coilCurrents`. A test integrates all three over a turn of the drawn waveform, and another integrates the circuit with its ripple, 10 mV, which moves the mean by 0.3 mV. Averaged mode solves its regulated and free balances over the rectifier's conduction angle with an Illinois false-position solver (`src/sim/solve.ts`), at 3 µs and 5 µs a step. The capacitor settles at 1.34 V at 8 rev/s (was 0.80 V), and the IC browns out at 4.275 rev/s (was 6.44). `IC_START_V` rose from 0.75 V to 1.0 V, because at 0.75 V the IC restarted 158 times after brownout. The regulator's gains were retuned to (0.03, 0.03, 0.005) by rerunning D6's grid search, because the old ones locked in 5.5 s. D4, D5, D6, D7, D8, D9, D12, **Model predictions**, **Energy budget**, and **Plausibility check** are rewritten from the new balance, and the known gap is closed. D12's open question is answered: the capacitor, not the brake, makes a knock back swing further than one forward. Decision 37, and amendments to 6, 20, 23, and 36.
 

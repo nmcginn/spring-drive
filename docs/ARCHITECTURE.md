@@ -25,7 +25,7 @@ src/
     regulator.ts            The PID brake-duty law with anti-windup, run once per reference tick.
     detailed.ts             The 4,096 Hz stepper, the energy ledger, shocks, winding, realignment, and runScenario.
     spindown.ts             The glide wheel let go with the spring out of the way: friction and the duty-averaged coil brake, stepped as in detailed mode, with an exact energy ledger (D10).
-    averaged.ts             Quasi-steady mode for hours and days: five regimes, their balances solved over the rectifier's conduction angle (D7), exact event times, winding, runAveragedScenario, and the handover to and from detailed mode.
+    averaged.ts             Quasi-steady mode for hours and days: five regimes, their balances solved over the rectifier's conduction angle (D7), exact event times, winding, runAveragedScenario, the handover to and from detailed mode, and where the power reaching the glide wheel goes (powerFlows, D13).
     metrics.ts              Lock: its definition and the time it is gained. Rate error in s/day.
     rng.ts                  Seeded Mulberry32, the sim's only randomness.
     shocks.ts               Seeded random shock schedules.
@@ -50,6 +50,7 @@ src/
     lenz-brake/             The wheel let go from 8 rev/s, braked by friction and the coil, with its spin-down plotted (decision 33). logic.ts is pure; index.ts mounts and draws.
     quartz/                 The crystal and every stage of the divider chain on a logic analyser, slowed by powers of two (decision 34). logic.ts is pure; index.ts mounts and draws.
     loop/                   The regulated movement at full wind, knocked or unregulated, with the wheel as the reference sees it and a scope of speed, phase error, and duty (decision 36). logic.ts is pure; index.ts mounts and draws.
+    tri-synchro/            The whole reserve in averaged mode, sped up: the dial, where the wheel's power goes, the power reserve, and a chart of speed, supply, and duty to the stop (decision 38). logic.ts is pure; index.ts mounts and draws.
 tools/
   sim-cli.ts                `npm run sim -- <scenario>… | all [--out <dir>]`: main(argv, io) returns the exit code.
   scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
@@ -66,7 +67,7 @@ tests/
   e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
 ```
 
-The target in `PLAN.md` also lists the widget still to come (M8). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
+Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
 
 ## The rule: physics, runtime, and widgets stay separate
 

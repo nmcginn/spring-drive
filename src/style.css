@@ -92,6 +92,12 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+.widget-note {
+  margin: 0.5rem 0 0;
+  color: var(--ui-muted);
+  font-size: 0.875rem;
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;

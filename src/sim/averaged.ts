@@ -459,6 +459,45 @@ export function operatingPoint(
   };
 }
 
+/** Where the power reaching the glide wheel goes, W, from averaged mode's operating point (PHYSICS.md, D13). */
+export interface PowerFlows {
+  /** What the train delivers to the glide wheel: drive torque × speed. */
+  driveW: number;
+  /** Lost to the glide wheel's own friction. */
+  frictionW: number;
+  /** Heat in the coil while it is shorted: the brake. */
+  brakeW: number;
+  /**
+   * What the charging path takes from the wheel while the coil is not
+   * shorted: into the capacitor, and lost in the rectifier and the coil on
+   * the way (D5). Zero while nothing charges.
+   */
+  chargingW: number;
+  /** What the IC draws, from the charging path or, while nothing charges, from the capacitor alone. */
+  icW: number;
+}
+
+/**
+ * The power flows of the operating point `state` is in. The wheel is
+ * quasi-steady in every regime, so drive = friction + brake + charging, and
+ * `tests/sim/averaged.test.ts` checks it in each. Pure; nothing is advanced.
+ */
+export function powerFlows(state: AveragedState, params: SimParams, controls: SimControls): PowerFlows {
+  const op = operatingPoint(state, driveTorqueNm(state.barrelAngleRad, params), params, controls);
+  const omega = op.omegaRadS;
+  if (!(omega > 0)) return { driveW: 0, frictionW: 0, brakeW: 0, chargingW: 0, icW: op.icW };
+  const brakeW = op.duty * maxBrakeTorqueNm(omega, params) * omega;
+  return {
+    driveW: driveTorqueNm(state.barrelAngleRad, params) * omega,
+    frictionW: frictionTorqueNm(omega, params) * omega,
+    brakeW,
+    // The ledger's coil heat is the brake's and the charging current's
+    // together; the charging path's share is what is left of it.
+    chargingW: op.capDraining ? 0 : op.coilW - brakeW + op.rectifierW + op.icW,
+    icW: op.icW,
+  };
+}
+
 export interface AveragedInitialConditions {
   /** Fraction of full wind, 0 to 1. Default: fully wound. */
   windFraction?: number;
