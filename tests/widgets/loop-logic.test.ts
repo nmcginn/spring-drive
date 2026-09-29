@@ -28,6 +28,7 @@ import {
   status,
   stripY,
   timeLabels,
+  traceRuns,
   type LoopState,
 } from '../../src/widgets/loop/logic.ts';
 import { P } from '../sim/helpers.ts';
@@ -368,6 +369,49 @@ describe('loop: the scope', () => {
       '\u22122\u202fs',
       'now',
     ]);
+  });
+
+  it('strokes a trace as one run while its style holds, and splits it only where both ends go off scale', () => {
+    const pt = (x: number, clipped = false) => ({ x, y: 10 * x, clipped });
+    // Two clipped points in the middle make one faint segment between them.
+    const runs = traceRuns([pt(0), pt(1), pt(2, true), pt(3, true), pt(4), pt(5)]);
+    expect(runs.map((r) => r.faint)).toEqual([false, true, false]);
+    expect(runs.map((r) => r.points.map((p) => p.x))).toEqual([
+      [0, 1, 2],
+      [2, 3],
+      [3, 4, 5],
+    ]);
+  });
+
+  it('draws a whole scope of in-range points as a single path', () => {
+    const points = Array.from({ length: 513 }, (_, i) => ({ x: i, y: 0, clipped: false }));
+    const runs = traceRuns(points);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.points).toHaveLength(513);
+  });
+
+  it('draws nothing for fewer than two points', () => {
+    expect(traceRuns([])).toEqual([]);
+    expect(traceRuns([{ x: 0, y: 0, clipped: true }])).toEqual([]);
+  });
+
+  it('keeps every segment of a real scope: each run shares its end with the next, and none is lost', () => {
+    // Regulation off: the wheel runs off the speed and phase scales, so the
+    // traces have faint runs as well as full ones.
+    let s = setRegulation(knock(initialLoopState(P), 1, true, P), false, true, P);
+    for (let i = 0; i < 20; i++) s = advanceLoop(s, 0.1, P);
+    const box = { x: 0, y: 0, width: 300, height: 60 };
+    for (const ch of scopeChannels(P)) {
+      const traced = s.history.map((p) => ({
+        x: scopeX(box, p.timeS, s.sim.timeS),
+        ...stripY(box, channelValue(p, ch.channel), ch.min, ch.max),
+      }));
+      const runs = traceRuns(traced);
+      if (ch.channel === 'speed') expect(runs.some((r) => r.faint)).toBe(true);
+      const segments = runs.reduce((n, r) => n + r.points.length - 1, 0);
+      expect(segments).toBe(traced.length - 1);
+      for (let i = 1; i < runs.length; i++) expect(runs[i]?.points[0]).toEqual(runs[i - 1]?.points.at(-1));
+    }
   });
 
   it('names every kind of event', () => {

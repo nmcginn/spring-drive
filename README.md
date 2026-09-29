@@ -14,6 +14,8 @@ npm run check    # everything CI runs
 
 Node 22 (`.nvmrc`). `npm run sim -- <scenario>` runs a headless scenario and writes a CSV to `tools/out/`; `npm run sim` alone lists the scenarios. See `CLAUDE.md` for the full command list.
 
+To check the 4 ms frame budget on a real machine, open the page (or a preview deployment) with `?budget` in the URL. Scroll to a widget, press **Measure again**, and read the panel: the widgets' time per frame, in total and one by one (decision 39).
+
 | File | What it is |
 |---|---|
 | `PLAN.md` | The design: architecture, physics, article outline, widget requirements |

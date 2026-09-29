@@ -8,6 +8,8 @@
 // dependencies through `SchedulerEnv`, so Vitest can drive it under Node with
 // a fake clock and fake visibility.
 
+import { createFrameRecorder, summarize, type FrameCostSummary } from './budget.ts';
+
 /**
  * The longest step a widget is ever asked to take, in seconds. A tab returning
  * from the background, or a debugger breakpoint, can produce a frame gap of
@@ -67,6 +69,8 @@ export interface WidgetStatus extends TickInputs {
 }
 
 export interface Registration {
+  /** Names the widget in frame-cost figures. Widgets without one are "widget". */
+  name?: string;
   /** Advance by `dtS` seconds and draw. Only called while ticking. */
   tick(dtS: number): void;
   /**
@@ -95,6 +99,13 @@ export interface Scheduler {
   registrationCount(): number;
   /** Whether a frame is currently requested. False means the loop costs nothing. */
   isLoopRunning(): boolean;
+  /**
+   * What the last few seconds of ticks cost, in total per frame and per
+   * widget (decision 39). Empty when the env has no clock.
+   */
+  frameCosts(): FrameCostSummary;
+  /** Forget the frames recorded so far, to measure from a known moment. */
+  resetFrameCosts(): void;
 }
 
 /** The browser, as the scheduler sees it. Injected so tests can fake it. */
@@ -106,6 +117,11 @@ export interface SchedulerEnv {
   reducedMotion(): boolean;
   /** Subscribe to reduced-motion changes. Returns an unsubscribe function. */
   onReducedMotionChange(callback: (reduced: boolean) => void): () => void;
+  /**
+   * A monotonic clock in ms, used only to time ticks for the frame budget.
+   * Never passed to widgets: they get their time as the frame's step.
+   */
+  now?(): number;
 }
 
 interface Entry {
@@ -123,6 +139,7 @@ export function createScheduler(env: SchedulerEnv): Scheduler {
   let reducedMotion = env.reducedMotion();
   let frameId: number | undefined;
   let prevFrameMs: number | undefined;
+  const recorder = createFrameRecorder();
 
   function statusOf(entry: Entry): WidgetStatus {
     const inputs: TickInputs = {
@@ -162,9 +179,13 @@ export function createScheduler(env: SchedulerEnv): Scheduler {
     frameId = undefined;
     const dtS = frameDtS(prevFrameMs, nowMs);
     prevFrameMs = nowMs;
+    const now = env.now?.bind(env);
+    const widgetMs = new Map<string, number>();
+    let totalMs = 0;
     // Snapshot: a tick may unregister its own or another widget.
     for (const entry of [...entries]) {
       if (!entry.ticking || !entries.has(entry)) continue;
+      const startMs = now?.();
       try {
         entry.registration.tick(dtS);
       } catch (error) {
@@ -172,7 +193,16 @@ export function createScheduler(env: SchedulerEnv): Scheduler {
         // loud: the Playwright tests fail on any console error.
         console.error(error);
       }
+      if (now && startMs !== undefined) {
+        const ms = now() - startMs;
+        const name = entry.registration.name ?? 'widget';
+        widgetMs.set(name, (widgetMs.get(name) ?? 0) + ms);
+        totalMs += ms;
+      }
     }
+    // A frame that ticked nobody (every widget stopped during it) is not a
+    // frame of widget work, and would pull the mean down.
+    if (now && widgetMs.size > 0) recorder.record({ totalMs, widgets: widgetMs });
     if ([...entries].some((e) => e.ticking)) {
       frameId = env.requestFrame(onFrame);
     }
@@ -228,6 +258,8 @@ export function createScheduler(env: SchedulerEnv): Scheduler {
     },
     registrationCount: () => entries.size,
     isLoopRunning: () => frameId !== undefined,
+    frameCosts: () => summarize(recorder.samples()),
+    resetFrameCosts: () => recorder.clear(),
   };
 }
 
@@ -269,6 +301,7 @@ export function browserEnv(): SchedulerEnv {
       };
     },
     reducedMotion: () => reducedQuery.matches,
+    now: () => performance.now(),
     onReducedMotionChange(callback) {
       const listener = (event: MediaQueryListEvent) => callback(event.matches);
       reducedQuery.addEventListener('change', listener);

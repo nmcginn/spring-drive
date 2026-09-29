@@ -8,6 +8,15 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 
 const PORT = 4173;
 
+const MOBILE = {
+  viewport: { width: 380, height: 800 },
+  hasTouch: true,
+  isMobile: true,
+  deviceScaleFactor: 2,
+};
+const DESKTOP = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 };
+const BUDGET = 'budget.spec.ts';
+
 export default defineConfig({
   testDir: 'tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
@@ -24,19 +33,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    {
-      name: 'mobile',
-      use: {
-        viewport: { width: 380, height: 800 },
-        hasTouch: true,
-        isMobile: true,
-        deviceScaleFactor: 2,
-      },
-    },
-    {
-      name: 'desktop',
-      use: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
-    },
+    { name: 'mobile', use: MOBILE, testIgnore: BUDGET },
+    { name: 'desktop', use: DESKTOP, testIgnore: BUDGET },
+    // The frame budget is measured with nothing else running: after every
+    // other test, and one width after the other (decision 39).
+    { name: 'budget-mobile', use: MOBILE, testMatch: BUDGET, dependencies: ['mobile', 'desktop'] },
+    { name: 'budget-desktop', use: DESKTOP, testMatch: BUDGET, dependencies: ['budget-mobile'] },
   ],
   // Tests run against the production build, which is what readers get, and
   // what proves the fonts are served from dist rather than fetched.

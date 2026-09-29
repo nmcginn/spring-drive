@@ -27,6 +27,7 @@ import {
   status,
   stripY,
   timeLabels,
+  traceRuns,
   type Box,
   type LoopLayout,
   type LoopState,
@@ -190,20 +191,18 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       // The trace. Off the scale, it is pinned to the edge and drawn thin and faint.
       ctx.strokeStyle = colours[ch.channel];
       ctx.lineJoin = 'round';
-      let prev: { x: number; y: number; clipped: boolean } | null = null;
-      for (const p of state.history) {
-        const x = scopeX(box, p.timeS, now);
-        const { y, clipped } = stripY(box, channelValue(p, ch.channel), ch.min, ch.max);
-        if (prev) {
-          ctx.lineWidth = clipped && prev.clipped ? 1 : 2;
-          ctx.globalAlpha = clipped && prev.clipped ? 0.5 : 1;
-          ctx.beginPath();
-          ctx.moveTo(prev.x, prev.y);
-          ctx.lineTo(x, y);
-          ctx.stroke();
-        }
-        prev = { x, y, clipped };
+      const traced = state.history.map((p) => ({
+        x: scopeX(box, p.timeS, now),
+        ...stripY(box, channelValue(p, ch.channel), ch.min, ch.max),
+      }));
+      for (const run of traceRuns(traced)) {
+        ctx.lineWidth = run.faint ? 1 : 2;
+        ctx.globalAlpha = run.faint ? 0.5 : 1;
+        ctx.beginPath();
+        run.points.forEach((p, k) => (k === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+        ctx.stroke();
       }
+      const prev = traced.at(-1);
       ctx.globalAlpha = 1;
       if (prev?.clipped) {
         ctx.fillStyle = colours[ch.channel];

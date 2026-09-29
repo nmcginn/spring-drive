@@ -745,6 +745,40 @@ test.describe('page', () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  test('shows no frame budget panel unless the URL asks for one', async ({ page }) => {
+    await open(page, 'hero-glide', HERO);
+    await expectTicking(page, HERO);
+    await expect(page.locator('.budget-overlay')).toHaveCount(0);
+  });
+
+  test('with ?budget, shows each visible widget’s time per frame in a panel that fits the screen', async ({
+    page,
+    snap,
+  }) => {
+    await page.goto('/?budget');
+    await reach(page, 'loop', LOOP);
+    const panel = page.getByRole('complementary', { name: 'Frame budget' });
+    await expect(panel).toContainText('budget 4.00 ms');
+    // It refreshes twice a second; the loop is on screen, so it appears by name.
+    await expect(panel).toContainText(/loop\s*\d+\.\d\d ms mean/);
+    await expect(panel).toContainText(/Mean\s*\d+\.\d\d ms/);
+    const box = await panel.boundingBox();
+    const width = page.viewportSize()?.width ?? 0;
+    expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
+    await snap(page, 'budget-overlay');
+
+    await press(page.getByRole('button', { name: 'Measure the frame budget again from now' }));
+    await expect(panel).toContainText(/Frames\s*\d+/);
+    // Paused, no widget ticks, so after measuring again there is nothing to show.
+    await press(page.getByRole('button', { name: 'Pause animations' }));
+    await press(page.getByRole('button', { name: 'Measure the frame budget again from now' }));
+    await expect(panel).toContainText('none: no widget is animating');
+
+    // It folds away, on a phone, from the widget it is measuring.
+    await press(panel.getByText('Widget time per frame'));
+    await expect(panel.getByRole('button', { name: 'Measure the frame budget again from now' })).toBeHidden();
+  });
+
   test('stops on global pause, with a screenshot of the paused page', async ({ page, snap }) => {
     await open(page, 'hero-glide', HERO);
     await press(page.getByRole('button', { name: 'Pause animations' }));

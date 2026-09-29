@@ -39,6 +39,11 @@ export function mainspringTorqueNm(barrelAngleRad: number, params: SimParams): n
 /**
  * Energy stored in the mainspring relative to fully let down, J: the area
  * under the torque curve up to this angle, summed exactly segment by segment.
+ *
+ * Detailed mode calls this twice a step, so it walks the curve once. The
+ * torque at a segment's end is interpolated inline, with the same arithmetic
+ * `curveTorqueNm` uses, which keeps the sum bit-identical to the trapezoids
+ * over `curveTorqueNm` that define it (tests/sim/mainspring.test.ts).
  */
 export function mainspringEnergyJ(barrelAngleRad: number, params: SimParams): number {
   const curve = params.mainspringCurve;
@@ -49,8 +54,10 @@ export function mainspringEnergyJ(barrelAngleRad: number, params: SimParams): nu
     if (previous) {
       const [x0, t0] = previous;
       if (fraction <= x0) break;
-      const xEnd = Math.min(fraction, point[0]);
-      areaNmFraction += ((t0 + curveTorqueNm(curve, xEnd)) / 2) * (xEnd - x0);
+      const [x1, t1] = point;
+      const xEnd = Math.min(fraction, x1);
+      const tEnd = t0 + ((t1 - t0) * (xEnd - x0)) / (x1 - x0);
+      areaNmFraction += ((t0 + tEnd) / 2) * (xEnd - x0);
     }
     previous = point;
   }

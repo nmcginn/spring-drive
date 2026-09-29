@@ -70,6 +70,20 @@ describe('the detailed stepper', () => {
     expect(s).toStrictEqual(advanceSteps(createState(P), P, ON, 200));
   });
 
+  it('books the same spring energy stepping at once as step by step while the spring runs out', () => {
+    // advanceSteps carries each step's stored energy into the next (decision
+    // 39). Where the barrel reaches zero mid-batch and clamps, the carried
+    // value must still be the stored energy at the clamped angle. 10⁻⁷ of
+    // full wind is 4.4 µrad of barrel; 400 steps from 50 rad/s unwind about
+    // 10 µrad as the wheel slows, so the spring runs out part way through.
+    const nearlyEmpty = { ...createState(P, { windFraction: 1e-7 }), rotorOmegaRadS: 50 };
+    let s = nearlyEmpty;
+    for (let i = 0; i < 400; i++) s = stepDetailed(s, P, ON);
+    const batch = advanceSteps(nearlyEmpty, P, ON, 400);
+    expect(batch.barrelAngleRad).toBe(0);
+    expect(batch).toStrictEqual(s);
+  });
+
   it('adds a shock to the speed and books its energy, but never drives the wheel backwards', () => {
     const s = { ...createState(P), rotorOmegaRadS: 10 };
     const up = applyShock(s, 5, P);

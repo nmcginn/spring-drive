@@ -351,6 +351,36 @@ export function stripY(box: Box, value: number, min: number, max: number): { y: 
   return { y: box.y + box.height * (1 - c), clipped };
 }
 
+/** A stretch of a trace drawn in one style: full, or faint where both ends are off the scale. */
+export interface TraceRun {
+  faint: boolean;
+  points: { x: number; y: number }[];
+}
+
+/**
+ * A trace split into runs of one style, each to be stroked as a single path.
+ * A segment is faint when both its ends are pinned off the scale. Stroking
+ * each of the scope's 1,536 segments (512 a strip) on its own cost the loop
+ * widget about half its frame (decision 39). A run shares its end point with
+ * the next, so the line is unbroken where the style changes.
+ */
+export function traceRuns(points: readonly { x: number; y: number; clipped: boolean }[]): TraceRun[] {
+  const runs: TraceRun[] = [];
+  let current: TraceRun | undefined;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    if (!a || !b) continue;
+    const faint = a.clipped && b.clipped;
+    if (!current || current.faint !== faint) {
+      current = { faint, points: [{ x: a.x, y: a.y }] };
+      runs.push(current);
+    }
+    current.points.push({ x: b.x, y: b.y });
+  }
+  return runs;
+}
+
 export type Channel = 'speed' | 'phase' | 'duty';
 
 /** A scope point's value on one strip, in the strip's own unit: rev/s, degrees, or percent. */

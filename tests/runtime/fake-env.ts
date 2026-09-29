@@ -13,6 +13,11 @@ export class FakeEnv implements SchedulerEnv {
   private reduced: boolean;
   /** Every requestFrame call ever made, for asserting the loop went idle. */
   requestCount = 0;
+  /**
+   * The clock the scheduler times ticks with, ms. It moves only when a test
+   * moves it, usually from inside a tick, to say how long that tick took.
+   */
+  clockMs = 0;
 
   constructor(options: { reducedMotion?: boolean } = {}) {
     this.reduced = options.reducedMotion ?? false;
@@ -46,6 +51,10 @@ export class FakeEnv implements SchedulerEnv {
   onReducedMotionChange(callback: (reduced: boolean) => void): () => void {
     this.reducedMotionListeners.add(callback);
     return () => this.reducedMotionListeners.delete(callback);
+  }
+
+  now(): number {
+    return this.clockMs;
   }
 
   // --- Test controls -------------------------------------------------------

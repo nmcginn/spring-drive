@@ -4,9 +4,11 @@ import {
   createScheduler,
   frameDtS,
   shouldTick,
+  type SchedulerEnv,
   type TickInputs,
   type WidgetStatus,
 } from '../../src/runtime/scheduler.ts';
+import { FRAME_WINDOW } from '../../src/runtime/budget.ts';
 import { FakeEnv, fakeElement } from './fake-env.ts';
 
 const FRAME_MS = 1000 / 60;
@@ -306,5 +308,135 @@ describe('createScheduler', () => {
     scheduler.setGloballyPaused(true);
     expect(heard).toEqual([true, false]);
     expect(scheduler.isGloballyPaused()).toBe(true);
+  });
+});
+
+describe('the scheduler’s frame costs (decision 39)', () => {
+  /** A widget whose every tick takes `ms` on the fake clock. */
+  function costing(env: FakeEnv, name: string | undefined, ms: number) {
+    return {
+      ...(name === undefined ? {} : { name }),
+      tick: () => {
+        env.clockMs += ms;
+      },
+    };
+  }
+
+  it('times each widget’s tick under its name, and the frame as their sum', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const [a, b] = [fakeElement(), fakeElement()];
+    scheduler.register(a, costing(env, 'loop', 1.5));
+    scheduler.register(b, costing(env, 'quartz', 0.5));
+    env.setVisible(a, true);
+    env.setVisible(b, true);
+    env.frames(0, 10, FRAME_MS);
+    const costs = scheduler.frameCosts();
+    expect(costs.frames).toBe(10);
+    expect(costs.meanMs).toBe(2);
+    expect(costs.maxMs).toBe(2);
+    expect(costs.widgets).toEqual([
+      { name: 'loop', meanMs: 1.5, frames: 10 },
+      { name: 'quartz', meanMs: 0.5, frames: 10 },
+    ]);
+  });
+
+  it('counts only widgets that ticked: one offscreen costs its frames nothing', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const [a, b] = [fakeElement(), fakeElement()];
+    scheduler.register(a, costing(env, 'loop', 1));
+    scheduler.register(b, costing(env, 'quartz', 3));
+    env.setVisible(a, true);
+    env.frames(0, 5, FRAME_MS);
+    expect(scheduler.frameCosts().meanMs).toBe(1);
+    expect(scheduler.frameCosts().widgets.map((w) => w.name)).toEqual(['loop']);
+  });
+
+  it('records no frame while globally paused, so a pause does not flatter the mean', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const a = fakeElement();
+    scheduler.register(a, costing(env, 'loop', 1));
+    env.setVisible(a, true);
+    env.frames(0, 3, FRAME_MS);
+    scheduler.setGloballyPaused(true);
+    env.frames(100, 3, FRAME_MS);
+    expect(scheduler.frameCosts().frames).toBe(3);
+    expect(env.pendingFrameCount()).toBe(0);
+  });
+
+  it('still times a widget whose tick throws, and the widgets after it', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const [a, b] = [fakeElement(), fakeElement()];
+    scheduler.register(a, {
+      name: 'broken',
+      tick: () => {
+        env.clockMs += 2;
+        throw new Error('broken widget');
+      },
+    });
+    scheduler.register(b, costing(env, 'quartz', 1));
+    env.setVisible(a, true);
+    env.setVisible(b, true);
+    env.frames(0, 2, FRAME_MS);
+    expect(scheduler.frameCosts().meanMs).toBe(3);
+    expect(scheduler.frameCosts().widgets.map((w) => w.name)).toEqual(['broken', 'quartz']);
+  });
+
+  it('names a widget registered without a name "widget", and adds up two of them', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const [a, b] = [fakeElement(), fakeElement()];
+    scheduler.register(a, costing(env, undefined, 1));
+    scheduler.register(b, costing(env, undefined, 2));
+    env.setVisible(a, true);
+    env.setVisible(b, true);
+    env.frames(0, 1, FRAME_MS);
+    expect(scheduler.frameCosts().widgets).toEqual([{ name: 'widget', meanMs: 3, frames: 1 }]);
+  });
+
+  it('forgets what it measured when reset, to measure from a new place on the page', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const a = fakeElement();
+    scheduler.register(a, costing(env, 'loop', 1));
+    env.setVisible(a, true);
+    env.frames(0, 4, FRAME_MS);
+    scheduler.resetFrameCosts();
+    expect(scheduler.frameCosts().frames).toBe(0);
+    env.frames(100, 2, FRAME_MS);
+    expect(scheduler.frameCosts().frames).toBe(2);
+  });
+
+  it('measures nothing, and still ticks, in an env with no clock', () => {
+    const env = new FakeEnv();
+    const noClock: SchedulerEnv = {
+      requestFrame: (cb) => env.requestFrame(cb),
+      cancelFrame: (id) => env.cancelFrame(id),
+      observeVisibility: (el, cb) => env.observeVisibility(el, cb),
+      reducedMotion: () => env.reducedMotion(),
+      onReducedMotionChange: (cb) => env.onReducedMotionChange(cb),
+    };
+    const scheduler = createScheduler(noClock);
+    const a = fakeElement();
+    let ticks = 0;
+    scheduler.register(a, { name: 'loop', tick: () => ticks++ });
+    env.setVisible(a, true);
+    env.frames(0, 3, FRAME_MS);
+    expect(ticks).toBe(3);
+    expect(scheduler.frameCosts().frames).toBe(0);
+  });
+
+  it('keeps only the last FRAME_WINDOW frames', () => {
+    const env = new FakeEnv();
+    const scheduler = createScheduler(env);
+    const a = fakeElement();
+    scheduler.register(a, costing(env, 'loop', 1));
+    env.setVisible(a, true);
+    env.frames(0, FRAME_WINDOW + 50, FRAME_MS);
+    expect(scheduler.frameCosts().frames).toBe(FRAME_WINDOW);
   });
 });
