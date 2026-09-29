@@ -1,4 +1,5 @@
 import './style.css';
+import { budgetRequested, mountBudgetOverlay } from './runtime/budget-overlay.ts';
 import { getScheduler } from './runtime/scheduler.ts';
 import { WIDGETS } from './widgets/registry.ts';
 
@@ -53,3 +54,4 @@ function wireGlobalPause(button: HTMLButtonElement): void {
 mountLazily([...document.querySelectorAll<HTMLElement>('[data-widget]')]);
 const pauseButton = document.querySelector<HTMLButtonElement>('[data-global-pause]');
 if (pauseButton) wireGlobalPause(pauseButton);
+if (budgetRequested(window.location.search)) mountBudgetOverlay(getScheduler());

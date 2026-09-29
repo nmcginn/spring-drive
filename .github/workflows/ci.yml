@@ -86,6 +86,24 @@ jobs:
       - name: Smoke tests
         run: npm run test:e2e
 
+      # The frame budget's figures at every stop (decision 39), so a reviewer
+      # sees them without checking out the branch. Reported whether or not
+      # the budget held.
+      - name: Report frame budget
+        if: always()
+        run: |
+          if [ -f test-results/budget/rows.md ]; then
+            {
+              echo '### Frame budget (4 ms)'
+              echo
+              echo "Widget ticks are timed by the page itself. Main thread is Chrome's trace of the page's main thread, which in CI includes rasterising the canvases, work a GPU does off the main thread on a reader's machine. The budget is asserted on Widgets mean and on Main less raster (decision 39). All in ms per frame."
+              echo
+              echo '| Project | Stop | Widgets mean | Widgets p95 | Each widget | Main thread | Canvas raster | Main less raster |'
+              echo '|---|---|---:|---:|---|---:|---:|---:|'
+              cat test-results/budget/rows.md
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # The screenshots are how widget work gets reviewed without checking out
       # the branch, so they are uploaded whether or not the tests passed.
       - name: Upload screenshots

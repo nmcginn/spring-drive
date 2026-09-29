@@ -175,6 +175,36 @@ a {
   box-shadow: 0 0 0 1px var(--ui-grid);
 }
 
+.budget-overlay {
+  /* A measuring tool (?budget, decision 39), not part of the article. It sits
+     top right, clear of the pause button, and never wider than the phone. */
+  position: fixed;
+  top: var(--gutter);
+  right: var(--gutter);
+  max-width: min(20rem, calc(100vw - 2 * var(--gutter)));
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--ui-surface);
+  box-shadow: 0 0 0 1px var(--ui-grid);
+  font-size: 0.875rem;
+  z-index: 1;
+}
+
+.budget-overlay-title {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.budget-overlay-title:focus-visible {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
+}
+
+.budget-overlay .readouts {
+  margin-top: 0.25rem;
+  font-size: inherit;
+}
+
 .article-footer {
   margin-top: 4rem;
   border-top: 1px solid var(--ui-grid);

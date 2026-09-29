@@ -52,6 +52,28 @@ describe('the mainspring', () => {
     }
   });
 
+  it('sums, in one pass, exactly the trapezoids under curveTorqueNm that define the stored energy', () => {
+    // The definition, written the slow way: each segment's trapezoid, with
+    // the torque at its end read from curveTorqueNm. The fast sum must agree
+    // to the last bit, not to a tolerance, so that speeding it up (decision
+    // 39) cannot have moved any number in PHYSICS.md.
+    function definitionJ(barrelAngleRad: number): number {
+      const fraction = windFraction(barrelAngleRad, P);
+      let area = 0;
+      for (let i = 1; i < MAINSPRING_TORQUE_CURVE.length; i++) {
+        const [x0, t0] = MAINSPRING_TORQUE_CURVE[i - 1] ?? [0, 0];
+        const [x1] = MAINSPRING_TORQUE_CURVE[i] ?? [0, 0];
+        if (fraction <= x0) break;
+        const xEnd = Math.min(fraction, x1);
+        area += ((t0 + curveTorqueNm(MAINSPRING_TORQUE_CURVE, xEnd)) / 2) * (xEnd - x0);
+      }
+      return area * FULL;
+    }
+    const knots = MAINSPRING_TORQUE_CURVE.map(([x]) => x);
+    const fractions = [-0.1, 1.2, ...knots, ...Array.from({ length: 1001 }, (_, i) => i / 1000)];
+    for (const x of fractions) expect(mainspringEnergyJ(x * FULL, P)).toBe(definitionJ(x * FULL));
+  });
+
   it('reports wind as a fraction, clamped to [0, 1]', () => {
     expect(windFraction(0.25 * FULL, P)).toBeCloseTo(0.25, 15);
     expect(windFraction(-5, P)).toBe(0);

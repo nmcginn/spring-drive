@@ -79,8 +79,12 @@ function cloneState(state: SimState): SimState {
   return { ...state, regulator: { ...state.regulator }, energy: { ...state.energy } };
 }
 
-/** One fixed step, in place. Only ever called on a private copy. */
-function stepInPlace(s: SimState, params: SimParams, controls: SimControls): void {
+/**
+ * One fixed step, in place. Only ever called on a private copy. `springJ` is
+ * the energy stored at the step's start, which the caller carries from the
+ * step before; it returns the energy stored at the step's end.
+ */
+function stepInPlace(s: SimState, params: SimParams, controls: SimControls, springJ: number): number {
   const dtS = params.stepS;
   const reg = s.regulator;
   const omega0 = s.rotorOmegaRadS;
@@ -99,7 +103,8 @@ function stepInPlace(s: SimState, params: SimParams, controls: SimControls): voi
 
   // Barrel: exact energy released over the angle it unwound.
   const barrel1 = Math.max(0, s.barrelAngleRad - barrelAngleForRotorRad(turnedRad, params));
-  const releasedJ = mainspringEnergyJ(s.barrelAngleRad, params) - mainspringEnergyJ(barrel1, params);
+  const springJ1 = mainspringEnergyJ(barrel1, params);
+  const releasedJ = springJ - springJ1;
   s.barrelAngleRad = barrel1;
 
   // Mechanical losses over the step, at the step's mean speed, which is the
@@ -149,12 +154,17 @@ function stepInPlace(s: SimState, params: SimParams, controls: SimControls): voi
 
   s.step += 1;
   s.timeS = s.step * dtS;
+  return springJ1;
 }
 
 /** Advance by a whole number of steps. Returns a new state; the input is untouched. */
 export function advanceSteps(state: SimState, params: SimParams, controls: SimControls, steps: number): SimState {
   const s = cloneState(state);
-  for (let i = 0; i < steps; i++) stepInPlace(s, params, controls);
+  // Each step's end is the next one's start, and mainspringEnergyJ is a pure
+  // function of the barrel angle, so carrying it halves the calls without
+  // changing a bit of the ledger (decision 39).
+  let springJ = mainspringEnergyJ(s.barrelAngleRad, params);
+  for (let i = 0; i < steps; i++) springJ = stepInPlace(s, params, controls, springJ);
   return s;
 }
 
@@ -272,12 +282,14 @@ export function runScenario(scenario: Scenario): { samples: Sample[]; final: Sim
   let nextShock = 0;
   let s = cloneState(scenario.initial);
   const samples: Sample[] = [sampleOf(s, params)];
+  // Carried as in advanceSteps; a shock changes only the wheel's speed, never the barrel.
+  let springJ = mainspringEnergyJ(s.barrelAngleRad, params);
   for (let i = 0; i < totalSteps; i++) {
     for (let shock = shocks[nextShock]; shock && shock.timeS <= s.timeS; shock = shocks[nextShock]) {
       s = applyShock(s, shock.deltaOmegaRadS, params);
       nextShock++;
     }
-    stepInPlace(s, params, controls);
+    springJ = stepInPlace(s, params, controls, springJ);
     if (s.step % sampleEvery === 0) samples.push(sampleOf(s, params));
   }
   return { samples, final: s };

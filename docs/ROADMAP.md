@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M8 (`tri-synchro`), in review as #15. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, and M7b as #14.
-- Last session: 2026-09-28, M8: the tri-synchro widget, with derivation D13, `powerFlows` in averaged mode, and decision 38. No new parameter.
-- Open PRs waiting on review: M8 (#15).
-- Next up: M9 (polish), which needs M3 to M8 merged. It can stack on #15 while that is in review.
+- Current milestone: M9a (the frame budget), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, and the loop e2e fix as #16.
+- Last session: 2026-09-29, M9a: the scheduler times every tick, a `?budget` panel shows it, and a Playwright spec asserts the budget at every widget's scroll stop. `mainspringEnergyJ`, detailed stepping, and the loop's scope got faster without moving a number. M9 is split into M9a to M9d. Decision 39. No new parameter.
+- Open PRs waiting on review: M9a.
+- Next up: M9b (palette consistency). It needs only M3 to M8, all merged, so it can proceed from `master` while M9a is in review; so can M9c and M9d.
 
 ## Open questions for the maintainer
 
@@ -144,14 +144,34 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 
 ## M9: Polish
 
-- [ ] **Palette consistency, the frame budget, keyboard access, and sharing metadata.**
-  *Needs:* M3 to M8.
-  - Consistent palette usage across prose and widgets
-  - Performance budget: all visible widgets together stay under 4 ms of main-thread time per frame on a mid-range laptop
-  - Keyboard access for all controls, ARIA labels on sliders
-  - Open Graph image and meta tags
+Split along its four items, as its acceptance asked, because they touch different surfaces: the runtime and every widget's cost, the palette in prose and widgets, the controls, and the page's head. Each is its own task below, and M9 is done when all four are.
 
-  *Acceptance:* each item above holds. How the frame budget is measured is recorded in `docs/DECISIONS.md`, and so is what CI can and cannot prove about it, since a CI runner is not a mid-range laptop. These four items touch different surfaces, so this is the one milestone expected to split. Split it along those lines.
+- *Needs (all four):* M3 to M8.
+- *Acceptance (all four):* each item holds.
+
+### M9a: The frame budget
+
+- [x] **All visible widgets together stay under 4 ms of main-thread time per frame on a mid-range laptop.**
+  *Needs:* M3 to M8.
+  *Acceptance:* how the frame budget is measured is recorded in `docs/DECISIONS.md`, and so is what CI can and cannot prove about it, since a CI runner is not a mid-range laptop (decision 39).
+
+### M9b: Palette consistency
+
+- [ ] **Consistent palette usage across prose and widgets.**
+  *Needs:* M3 to M8.
+  *Acceptance:* the item holds.
+
+### M9c: Keyboard access
+
+- [ ] **Keyboard access for all controls, and ARIA labels on sliders.**
+  *Needs:* M3 to M8.
+  *Acceptance:* the item holds.
+
+### M9d: Sharing metadata
+
+- [ ] **Open Graph image and meta tags.**
+  *Needs:* M3 to M8.
+  *Acceptance:* the item holds. `index.html`'s empty `data:` favicon is a placeholder waiting on this task.
 
 ## M10 (optional): `movement-3d`
 
@@ -164,6 +184,8 @@ These come from `PLAN.md`, and the Playwright test is what proves them.
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M9a: The frame budget** (2026-09-29). The scheduler times every widget's tick and keeps the last four seconds (`src/runtime/budget.ts`). With `?budget` in the URL, a panel shows the mean, 95th percentile, worst, and share over 4 ms, and each widget's mean, with a Measure again button (`src/runtime/budget-overlay.ts`). That is how the budget is checked on a real laptop. `tests/e2e/budget.spec.ts` stops at each widget as a reader would, centred, in its most expensive state, at both widths, in projects that run after everything else and one at a time. It asserts that the widgets' mean tick time is under 4 ms, and so is the main thread's time less canvas rasterising, from Chrome's trace. CI writes every stop's figures into its run summary. The measurements found `mainspringEnergyJ` was O(N²) and called twice a step. It is now one pass, carried between steps, bit-identical, with every scenario CSV byte-identical. The loop's scope now strokes one path per run instead of 1,536. Together these took the widgets, all seven on screen at once, from 4.3 ms to about 2.7 ms a frame. The worst reader's stop, the desktop loop, measures about 2.5 ms. Decision 39.
 
 - **M8: `tri-synchro` widget** (2026-09-28). The whole movement from full wind to a stop, in averaged mode, sped up: a minute, ten minutes, an hour, or two hours a second, from a slider, and a Skip button that jumps six hours, which is also how a reduced-motion reader steps through the reserve. A dial whose hands are geared to the glide wheel, with faint true-time hands; a panel of where the power reaching the wheel goes (at full wind 1.629 µW: 29.4% friction, 68.8% brake, 1.8% electricity); a power reserve gauge that reads the barrel; and a chart over 78 h of speed, supply, and brake duty. Regulation ends at 70 h 39 min, the IC browns out at 71 h 11 min at 4.275 rev/s (M7b's waveform brownout), and the wheel stops at 73 h 46 min with its hands at 71.73 h, 2.04 h behind; each event is marked on the chart and named beneath it. Readouts include the rate, 0.0 s/day while regulated, with the note decision 26 asks for. `src/sim/averaged.ts` gains `powerFlows`, checked to balance in every regime and against the ledger. PHYSICS.md gains D13 and five predictions, with no new parameter. Decision 38.
 
@@ -186,4 +208,4 @@ Newest first. One paragraph per task: what landed, the date, and the decisions i
 
 Pull these up into a milestone when the maintainer decides they are the most valuable next thing.
 
-- (none yet)
+- **A faster averaged solve, if the maintainer accepts moving the last digits.** Averaged mode solves each balance to one ulp (decision 37), and that is now the largest single cost on the page: about 10 µs a step, 0.6 ms a frame for tri-synchro at an hour a second (decision 39). Stopping the solver at, say, 10⁻¹² relative would cut that, but it would move the model's figures in their last digits, so it is a physics choice, not a performance one. It is not needed for the budget today.

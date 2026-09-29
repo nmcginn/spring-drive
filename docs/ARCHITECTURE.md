@@ -7,7 +7,7 @@
 ```
 index.html                  The article skeleton: section headings, PROSE stubs, widget slots, the footnote.
 src/
-  main.ts                   Finds [data-widget] slots and mounts each widget as it nears the viewport; wires global pause.
+  main.ts                   Finds [data-widget] slots and mounts each widget as it nears the viewport; wires global pause; mounts the `?budget` panel.
   style.css                 Page and widget chrome. Colours only from palette custom properties; Jost from @fontsource.
   sim/
     tsconfig.json           Typechecks src/sim with neither the DOM lib nor Node's types.
@@ -30,7 +30,9 @@ src/
     rng.ts                  Seeded Mulberry32, the sim's only randomness.
     shocks.ts               Seeded random shock schedules.
   runtime/
-    scheduler.ts            The one animation loop: shouldTick, frameDtS, createScheduler, and the browser env.
+    scheduler.ts            The one animation loop: shouldTick, frameDtS, createScheduler, and the browser env; times every tick for the frame budget.
+    budget.ts               The 4 ms frame budget: a ring of recent frames' tick times, and their mean, 95th percentile, and per-widget means (decision 39).
+    budget-overlay.ts       The `?budget` panel: the scheduler's frame costs on the page, for checking the budget on a real machine.
     palette.ts              Part and UI colour tokens for light and dark, paletteCss, WCAG contrast helpers.
     canvas.ts               HiDPI canvas that tracks its container's width, capped at 2x.
     controls.ts             Button, toggle, and slider helpers, and the reduced-motion Play/Pause button.
@@ -64,7 +66,8 @@ tests/
   widgets/                  Vitest: each widget's pure logic, formatting, and dial geometry under Node; the widget contract for every widget under happy-dom (mount.test.ts).
   lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18).
   page.test.ts              Vitest: index.html's data-part names, widget slots, and origins.
-  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build.
+  harness/                  Vitest: the e2e suite's own pure helpers, such as reading a Chrome trace.
+  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
 ```
 
 Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
@@ -102,3 +105,4 @@ Controls change params or inject events, such as a shock or a wind, between step
 | Widget logic | Vitest | Geometry, readout formatting, control mapping |
 | Runtime | Vitest | The tick decision (pause, visibility, reduced motion) as a pure function |
 | Widgets in a page | Playwright | Mount, primary control, no console errors, no off-origin requests, screenshots at 380 px and desktop |
+| Frame budget | Playwright, then CI's run summary | At every widget's scroll stop, at both widths: widgets' ticks, and the main thread less canvas rasterising, each under 4 ms a frame (decision 39) |

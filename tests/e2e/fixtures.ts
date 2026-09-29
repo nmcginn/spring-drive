@@ -3,6 +3,9 @@ import { test as base, expect, type Locator, type Page } from '@playwright/test'
 
 export const SCREENSHOT_DIR = join(import.meta.dirname, '..', '..', 'test-results', 'screenshots');
 
+/** The frame budget's figures, one table row per stop, which CI puts in its run summary (decision 39). */
+export const BUDGET_REPORT = join(import.meta.dirname, '..', '..', 'test-results', 'budget', 'rows.md');
+
 interface Fixtures {
   /** Fails the test on any console error, page error, or request to another origin. */
   // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- Playwright's type for a fixture that provides no value.

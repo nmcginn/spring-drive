@@ -90,6 +90,7 @@ export function createShell(opts: ShellOptions): Shell {
   }
 
   handle = opts.scheduler.register(root, {
+    name: opts.className.replace(/^widget-/, ''),
     tick(dtS) {
       opts.advance(dtS);
       ticks += 1;

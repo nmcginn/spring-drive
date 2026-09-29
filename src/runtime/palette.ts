@@ -125,8 +125,15 @@ export function contrastRatio(a: string, b: string): number {
 // takes effect on their next frame; `onSchemeChange` lets a widget that is
 // not ticking redraw its static frame.
 
+// One query for the page's lifetime. A MediaQueryList tracks the scheme
+// live, and widgets ask for the theme every frame, so creating a new list per
+// call cost every widget a matchMedia on every frame.
+let query: MediaQueryList | undefined;
+
 function schemeQuery(): MediaQueryList | undefined {
-  return typeof window === 'undefined' ? undefined : window.matchMedia('(prefers-color-scheme: dark)');
+  if (typeof window === 'undefined') return undefined;
+  query ??= window.matchMedia('(prefers-color-scheme: dark)');
+  return query;
 }
 
 export function currentScheme(): Scheme {
