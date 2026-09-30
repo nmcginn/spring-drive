@@ -8,6 +8,8 @@ import { mount as mountLoop } from '../../src/widgets/loop/index.ts';
 import { mount as mountQuartz } from '../../src/widgets/quartz/index.ts';
 import { mount as mountRunaway } from '../../src/widgets/runaway/index.ts';
 import { mount as mountTri } from '../../src/widgets/tri-synchro/index.ts';
+import { PART_IDS } from '../../src/runtime/palette.ts';
+import { namedPart, proseTerms } from '../prose.ts';
 import { FakeEnv } from '../runtime/fake-env.ts';
 
 // The widget contract (ROADMAP.md, "Widget done-when"), checked for every
@@ -66,6 +68,24 @@ for (const w of WIDGETS) {
       // Every value has a unit after a narrow no-break space, or is a ratio
       // or angle whose unit is its symbol.
       for (const value of values()) expect(value).toMatch(/\u202f\S|×|°/);
+    });
+
+    it('colours every readout label that names a part as the prose colours that part', () => {
+      // The prose's own markup, span.part[data-part], so the page's one CSS
+      // rule colours both (decision 40). A label that begins with a part's
+      // name must carry it; others may carry the part their quantity is drawn in.
+      const { root } = setup(w);
+      const terms = proseTerms();
+      const labels = [...root().querySelectorAll<HTMLElement>('.readouts dt')];
+      for (const dt of labels) {
+        const named = namedPart(dt.textContent ?? '', terms);
+        if (named) expect([dt.textContent, dt.dataset.part]).toEqual([dt.textContent, named]);
+        if (dt.dataset.part) {
+          expect(PART_IDS).toContain(dt.dataset.part);
+          expect(dt.classList.contains('part')).toBe(true);
+        }
+      }
+      expect(labels.some((dt) => dt.dataset.part)).toBe(true);
     });
 
     it('advances only through the scheduler, and only while visible', () => {

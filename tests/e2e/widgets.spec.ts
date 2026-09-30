@@ -215,6 +215,16 @@ test.describe('runaway', () => {
     await expect(ff).toHaveAttribute('aria-pressed', 'false');
     await expectTicking(page, RUNAWAY);
   });
+
+  test('follows the dark colour scheme', async ({ page, snap }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await open(page, 'runaway', RUNAWAY);
+    await press(page.getByRole('button', { name: 'Wind the mainspring fully and set the hands to 12:00' }));
+    await expect
+      .poll(async () => parseFloat((await readout(page, RUNAWAY, 'Glide wheel speed').textContent()) ?? ''))
+      .toBeGreaterThan(20);
+    await snap(page, 'runaway-dark');
+  });
 });
 
 test.describe('generator', () => {

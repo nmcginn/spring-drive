@@ -39,7 +39,8 @@ src/
   widgets/
     registry.ts             Widget IDs mapped to lazy imports.
     shared/                 What every widget uses (decision 27):
-      shell.ts                The canvas, readouts, controls, scheduler registration, and unmount.
+      shell.ts                The canvas, readouts (each label keyed to its part as the prose is), controls, scheduler registration, and unmount.
+      colours.ts              Which part each drawn thing is coloured as: the one place widgets read part colours (decision 40).
       format.ts               Readout values with their units, counts with thousands separators, short times, and playback rates.
       labels.ts               Placing labels along a line so none overlaps another, pure.
       dial.ts                 Hand angles and dial geometry, pure.
@@ -64,10 +65,11 @@ tests/
   tools/                    Vitest: the CSV format and the CLI's contract.
   runtime/                  Vitest: scheduler (with fake-env.ts), palette, canvas, controls.
   widgets/                  Vitest: each widget's pure logic, formatting, and dial geometry under Node; the widget contract for every widget under happy-dom (mount.test.ts).
-  lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18).
-  page.test.ts              Vitest: index.html's data-part names, widget slots, and origins.
-  harness/                  Vitest: the e2e suite's own pure helpers, such as reading a Chrome trace.
-  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
+  lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18), including the palette's (decision 40).
+  prose.ts                  What the prose calls each part, read from index.html, for the palette checks (decision 40).
+  page.test.ts              Vitest: index.html's data-part names (one part per word), widget slots, and origins.
+  harness/                  Vitest: the test suite's own pure helpers, such as reading a Chrome trace and the prose's part names.
+  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; every label naming a part drawn in its colour, in both schemes (palette.spec.ts; decision 40); then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
 ```
 
 Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
@@ -104,5 +106,6 @@ Controls change params or inject events, such as a shock or a wind, between step
 | `tools` | Vitest, and `npm run sim -- all` in CI | The CLI's exit codes and output, CSV headers with units; every scenario runs |
 | Widget logic | Vitest | Geometry, readout formatting, control mapping |
 | Runtime | Vitest | The tick decision (pause, visibility, reduced motion) as a pure function |
+| Palette | Vitest and Playwright | A part is one colour in the prose, on every canvas label that names it, and in every readout keyed to it, in both schemes (decision 40) |
 | Widgets in a page | Playwright | Mount, primary control, no console errors, no off-origin requests, screenshots at 380 px and desktop |
 | Frame budget | Playwright, then CI's run summary | At every widget's scroll stop, at both widths: widgets' ticks, and the main thread less canvas rasterising, each under 4 ms a frame (decision 39) |

@@ -233,7 +233,7 @@ describe('quartz: readouts', () => {
   });
 
   it('reads the counter as the cycles since the last tick, rolling over at 4,096', () => {
-    expect(readouts(at(0, 0), P)[3].label).toBe('Counter, 0 to 4,095');
+    expect(readouts(at(0, 0), P)[3]!.label).toBe('Counter, 0 to 4,095');
     expect(value(at(4095.9, 0), 'Counter')).toBe(`4,095${UNIT_SPACE}cycles`);
     expect(value(at(4096, 0), 'Counter')).toBe(`0${UNIT_SPACE}cycles`);
     expect(value(at(4096, 0), 'Reference ticks given')).toBe(`1${UNIT_SPACE}ticks`);

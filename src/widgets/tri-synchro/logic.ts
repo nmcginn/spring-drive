@@ -21,7 +21,9 @@ import { fullWindAngleRad } from '../../sim/mainspring.ts';
 import { POWER_RESERVE_H, RATED_ACCURACY_S_PER_MONTH } from '../../sim/params.ts';
 import type { AveragedState, SimControls, SimParams } from '../../sim/types.ts';
 import { SECONDS_PER_DAY, SECONDS_PER_HOUR, radSToRevS } from '../../sim/units.ts';
+import type { Role } from '../shared/colours.ts';
 import { UNIT_SPACE, formatCount, formatDuration, formatPercent, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 const REGULATED: SimControls = { brakeEnabled: true };
 
@@ -271,6 +273,11 @@ export function statusLine(state: TriState): string {
   return `IC: ${s}`;
 }
 
+/** Whose colour the status line takes: the part it names. */
+export function statusRole(state: TriState): Role {
+  return status(state) === 'stopped' ? 'glideWheel' : 'ic';
+}
+
 export function flows(state: TriState, params: SimParams): PowerFlows {
   return powerFlows(state.sim, params, REGULATED);
 }
@@ -278,6 +285,8 @@ export function flows(state: TriState, params: SimParams): PowerFlows {
 export interface PowerShare {
   key: 'friction' | 'brake' | 'charging';
   label: string;
+  /** Whose colour the share is drawn in. Friction belongs to no one part (decision 40), so it has none. */
+  role: Role | null;
   watts: number;
   /** Share of the power reaching the glide wheel, 0 to 1; zero while nothing reaches it. */
   share: number;
@@ -290,9 +299,9 @@ export function powerShares(f: PowerFlows): PowerShare[] {
   const total = f.frictionW + f.brakeW + f.chargingW;
   const share = (w: number) => (total > 0 ? w / total : 0);
   return [
-    { key: 'friction', label: 'Friction', watts: f.frictionW, share: share(f.frictionW) },
-    { key: 'brake', label: 'Brake', watts: f.brakeW, share: share(f.brakeW) },
-    { key: 'charging', label: 'Electricity', watts: f.chargingW, share: share(f.chargingW) },
+    { key: 'friction', label: 'Friction', role: null, watts: f.frictionW, share: share(f.frictionW) },
+    { key: 'brake', label: 'Brake', role: 'brake', watts: f.brakeW, share: share(f.brakeW) },
+    { key: 'charging', label: 'Electricity', role: 'supply', watts: f.chargingW, share: share(f.chargingW) },
   ];
 }
 
@@ -324,15 +333,27 @@ export function eventLabel(kind: RunEventKind): string {
   }
 }
 
-export function readouts(state: TriState, params: SimParams) {
+/** Whose colour an event's line takes: the part it names, or none. */
+export function eventRole(kind: RunEventKind): Role | null {
+  switch (kind) {
+    case 'regulation-ends':
+      return null;
+    case 'ic-off':
+      return 'ic';
+    case 'stops':
+      return 'glideWheel';
+  }
+}
+
+export function readouts(state: TriState, params: SimParams): Readout[] {
   return [
     { label: 'Time since wound', value: formatDuration(state.sim.timeS) },
     { label: 'Time runs at', value: formatRate(rate(state)) },
-    { label: 'Power reserve', value: withUnit(reserveH(state, params), 1, 'h') },
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
-    { label: 'Brake duty', value: formatPercent(state.sim.icOn ? state.sim.duty : 0) },
-    { label: 'Supply voltage', value: withUnit(state.sim.capVoltageV, 3, 'V') },
-    { label: 'Hands vs true time', value: formatHandsOffset(handsAheadS(state, params)) },
+    { label: 'Power reserve', role: 'mainspring', value: withUnit(reserveH(state, params), 1, 'h') },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
+    { label: 'Brake duty', role: 'brake', value: formatPercent(state.sim.icOn ? state.sim.duty : 0) },
+    { label: 'Supply voltage', role: 'supply', value: withUnit(state.sim.capVoltageV, 3, 'V') },
+    { label: 'Hands vs true time', role: 'hands', value: formatHandsOffset(handsAheadS(state, params)) },
     { label: 'Rate', value: formatRatePerDay(rateSPerDay(state, params)) },
   ] as const;
 }

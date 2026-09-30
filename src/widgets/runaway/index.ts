@@ -5,6 +5,7 @@ import { getScheduler, type Scheduler } from '../../runtime/scheduler.ts';
 import { DEFAULT_PARAMS } from '../../sim/params.ts';
 import type { SimParams } from '../../sim/types.ts';
 import { TAU, radSToRevS, wrapAngleRad } from '../../sim/units.ts';
+import { colours } from '../shared/colours.ts';
 import { handAngles, polar } from '../shared/dial.ts';
 import { drawArbor, drawDialFace, drawHand, labelFont } from '../shared/draw.ts';
 import { withUnit } from '../shared/format.ts';
@@ -79,10 +80,11 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   function draw(ctx: CanvasRenderingContext2D, size: CanvasSize, t: Theme): void {
     const layout = runawayLayout(size.cssWidth);
     if (layout.rotor.radius <= 0) return;
+    const c = colours(t);
     drawRotor(ctx, layout.rotor, t);
     drawDial(ctx, layout.dial, t);
-    drawBar(ctx, layout.speedBar, barFraction(radSToRevS(rotorOmegaRadS(state)), scaleMaxRevS), t.parts.rotor, t);
-    label(ctx, layout.speedBar, 'Glide wheel speed', t);
+    drawBar(ctx, layout.speedBar, barFraction(radSToRevS(rotorOmegaRadS(state)), scaleMaxRevS), c.speed, t);
+    label(ctx, layout.speedBar, 'Glide wheel speed', c.speed);
     // The speed scale's low end is where the "keeps time" note goes instead.
     scale(ctx, layout.speedBar, null, withUnit(scaleMaxRevS, 0, 'rev/s'), t);
     const targetX = layout.speedBar.x + barFraction(targetRevS, scaleMaxRevS) * layout.speedBar.width;
@@ -102,15 +104,16 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       layout.speedBar.y + layout.speedBar.height + 4,
     );
 
-    drawBar(ctx, layout.springBar, woundFraction(state, params), t.parts.mainspring, t);
-    label(ctx, layout.springBar, 'Mainspring', t);
+    drawBar(ctx, layout.springBar, woundFraction(state, params), c.mainspring, t);
+    label(ctx, layout.springBar, 'Mainspring', c.mainspring);
     scale(ctx, layout.springBar, 'let down', 'fully wound', t);
   }
 
   function drawRotor(ctx: CanvasRenderingContext2D, r: { cx: number; cy: number; radius: number }, t: Theme) {
     const radius = r.radius * 0.8;
+    const wheel = colours(t).glideWheel;
     ctx.fillStyle = t.ui.background;
-    ctx.strokeStyle = t.parts.rotor;
+    ctx.strokeStyle = wheel;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(r.cx, r.cy, radius, 0, TAU);
@@ -119,7 +122,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
     const b = blur(state.sweepRad, TAU / SPOKE_COUNT);
     const angle = wrapAngleRad(rotorAngleRad(state));
-    ctx.strokeStyle = t.parts.rotor;
+    ctx.strokeStyle = wheel;
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.globalAlpha = b.alpha;
@@ -135,7 +138,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       }
     }
     ctx.globalAlpha = 1;
-    drawArbor(ctx, r.cx, r.cy, radius * 0.12, t.parts.rotor);
+    drawArbor(ctx, r.cx, r.cy, radius * 0.12, wheel);
   }
 
   function drawDial(ctx: CanvasRenderingContext2D, d: { cx: number; cy: number; radius: number }, t: Theme) {
@@ -146,20 +149,21 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     // than any frame rate can show, so fast-forward leaves it off.
     const seconds = !isFastForward(state);
     const ghost = t.ui.grid;
+    const hands = colours(t).hands;
     drawHand(ctx, d.cx, d.cy, d.radius, truth.hourRad, { colour: ghost, widthPx: 4, length: 0.5 });
     drawHand(ctx, d.cx, d.cy, d.radius, truth.minuteRad, { colour: ghost, widthPx: 3, length: 0.78 });
     if (seconds) drawHand(ctx, d.cx, d.cy, d.radius, truth.secondRad, { colour: ghost, widthPx: 1.5, length: 0.92 });
-    drawHand(ctx, d.cx, d.cy, d.radius, watch.hourRad, { colour: t.parts.hand, widthPx: 4, length: 0.5, tail: 0.1 });
-    drawHand(ctx, d.cx, d.cy, d.radius, watch.minuteRad, { colour: t.parts.hand, widthPx: 3, length: 0.78, tail: 0.1 });
+    drawHand(ctx, d.cx, d.cy, d.radius, watch.hourRad, { colour: hands, widthPx: 4, length: 0.5, tail: 0.1 });
+    drawHand(ctx, d.cx, d.cy, d.radius, watch.minuteRad, { colour: hands, widthPx: 3, length: 0.78, tail: 0.1 });
     if (seconds) {
       drawHand(ctx, d.cx, d.cy, d.radius, watch.secondRad, {
-        colour: t.parts.rotor,
+        colour: hands,
         widthPx: 1.5,
         length: 0.92,
         tail: 0.18,
       });
     }
-    drawArbor(ctx, d.cx, d.cy, 3, t.parts.hand);
+    drawArbor(ctx, d.cx, d.cy, 3, hands);
   }
 
   function drawBar(ctx: CanvasRenderingContext2D, bar: Bar, fraction: number, colour: string, t: Theme) {
@@ -169,8 +173,9 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.fillRect(bar.x, bar.y, bar.width * fraction, bar.height);
   }
 
-  function label(ctx: CanvasRenderingContext2D, bar: Bar, text: string, t: Theme) {
-    ctx.fillStyle = t.ui.text;
+  /** A bar's name, in the colour of the part it measures, as the prose names it. */
+  function label(ctx: CanvasRenderingContext2D, bar: Bar, text: string, colour: string) {
+    ctx.fillStyle = colour;
     ctx.font = labelFont(13, 600);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';

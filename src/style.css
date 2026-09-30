@@ -86,6 +86,12 @@ a {
   color: var(--ui-muted);
 }
 
+.readouts dt.part {
+  /* Coloured by the palette's .part rule, as in the prose, but at the
+     readouts' weight: the colour is the key to the drawing, not emphasis. */
+  font-weight: inherit;
+}
+
 .readouts dd {
   margin: 0;
   font-family: var(--font-mono);

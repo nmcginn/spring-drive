@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PART_IDS } from '../src/runtime/palette.ts';
 import { WIDGETS } from '../src/widgets/registry.ts';
+import { proseTerms } from './prose.ts';
 
 // Checks on index.html that do not need a browser.
 
@@ -15,6 +16,14 @@ describe('index.html', () => {
     const used = [...html.matchAll(/data-part="([^"]+)"/g)].map((m) => m[1]);
     expect(used.length).toBeGreaterThan(0);
     for (const part of used) expect(PART_IDS).toContain(part);
+  });
+
+  it('calls each part by words it uses for no other part, so a name has one colour', () => {
+    // Decision 40: widgets colour a label by the part its words name in the
+    // prose, which only works if the words name one part.
+    const byTerm = new Map<string, Set<string>>();
+    for (const { term, part } of proseTerms(html)) byTerm.set(term, (byTerm.get(term) ?? new Set()).add(part));
+    for (const [term, parts] of byTerm) expect([term, [...parts]]).toEqual([term, [...parts].slice(0, 1)]);
   });
 
   it('only has widget slots for registered widgets', () => {

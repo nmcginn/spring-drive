@@ -76,6 +76,22 @@ const simRules = {
   ],
 };
 
+// Colours come only from the palette (CLAUDE.md, widget rules), and a widget
+// takes a part's colour only through src/widgets/shared/colours.ts, which says
+// once what each drawn thing is coloured as (decision 40).
+const COLOUR_LITERAL_MESSAGE = 'Colours come from src/runtime/palette.ts tokens only, never a literal.';
+const COLOUR_LITERALS = [
+  { selector: 'Literal[value=/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i]', message: COLOUR_LITERAL_MESSAGE },
+  { selector: 'Literal[value=/^(?:rgb|hsl)a?\\(/i]', message: COLOUR_LITERAL_MESSAGE },
+  { selector: 'TemplateElement[value.raw=/^(?:rgb|hsl)a?\\(/i]', message: COLOUR_LITERAL_MESSAGE },
+];
+const PART_ACCESS_MESSAGE =
+  'Widgets colour parts through colours(t) in src/widgets/shared/colours.ts, so a quantity is the same colour everywhere (decision 40).';
+const PART_ACCESS = [
+  { selector: "MemberExpression[property.name='parts']", message: PART_ACCESS_MESSAGE },
+  { selector: "ObjectPattern > Property[key.name='parts']", message: PART_ACCESS_MESSAGE },
+];
+
 export default tseslint.config(
   {
     ignores: ['dist/', 'node_modules/', 'test-results/', 'playwright-report/', 'tools/out/', 'tests/lint/fixtures/'],
@@ -119,6 +135,16 @@ export default tseslint.config(
     files: ['src/sim/**/*.ts'],
     languageOptions: { globals: {} },
     rules: simRules,
+  },
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/runtime/palette.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...COLOUR_LITERALS] },
+  },
+  {
+    files: ['src/widgets/**/*.ts'],
+    ignores: ['src/widgets/shared/colours.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...COLOUR_LITERALS, ...PART_ACCESS] },
   },
   {
     // Config files and tools run under Node.

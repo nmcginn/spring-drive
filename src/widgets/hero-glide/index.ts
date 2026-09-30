@@ -4,6 +4,7 @@ import { getScheduler, type Scheduler } from '../../runtime/scheduler.ts';
 import { DEFAULT_PARAMS } from '../../sim/params.ts';
 import type { SimParams } from '../../sim/types.ts';
 import { TAU } from '../../sim/units.ts';
+import { colours } from '../shared/colours.ts';
 import { handAngles, polar } from '../shared/dial.ts';
 import { drawArbor, drawDialFace, drawHand, labelFont } from '../shared/draw.ts';
 import { createShell } from '../shared/shell.ts';
@@ -72,11 +73,15 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   function drawWatch(ctx: CanvasRenderingContext2D, d: DialLayout, shownS: number, caption: string, t: Theme): void {
     if (d.radius <= 0) return;
     const hands = handAngles(shownS);
+    // Every hand in the hands' colour, as the prose names the seconds hand:
+    // the mechanical watch has no glide wheel, and the Spring Drive's seconds
+    // hand is a hand, however it is driven.
+    const colour = colours(t).hands;
     drawDialFace(ctx, d.cx, d.cy, d.radius, t);
-    drawHand(ctx, d.cx, d.cy, d.radius, hands.hourRad, { colour: t.parts.hand, widthPx: 4, length: 0.5, tail: 0.1 });
-    drawHand(ctx, d.cx, d.cy, d.radius, hands.minuteRad, { colour: t.parts.hand, widthPx: 3, length: 0.78, tail: 0.1 });
-    drawHand(ctx, d.cx, d.cy, d.radius, hands.secondRad, { ...SECONDS_HAND, colour: t.parts.rotor });
-    drawArbor(ctx, d.cx, d.cy, 3, t.parts.rotor);
+    drawHand(ctx, d.cx, d.cy, d.radius, hands.hourRad, { colour, widthPx: 4, length: 0.5, tail: 0.1 });
+    drawHand(ctx, d.cx, d.cy, d.radius, hands.minuteRad, { colour, widthPx: 3, length: 0.78, tail: 0.1 });
+    drawHand(ctx, d.cx, d.cy, d.radius, hands.secondRad, { ...SECONDS_HAND, colour });
+    drawArbor(ctx, d.cx, d.cy, 3, colour);
 
     // Each loupe follows its own seconds hand, so the hand stays at its
     // centre and the dial's scale moves past it: smoothly under the Spring
@@ -127,7 +132,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
     const base = at(tipPx - (2 * loupe.radius) / k, centreRad);
     const tip = at(d.radius * SECONDS_HAND.length, centreRad);
-    ctx.strokeStyle = t.parts.rotor;
+    ctx.strokeStyle = colours(t).hands;
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.beginPath();

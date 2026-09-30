@@ -2,6 +2,7 @@
 // comes from a pure function elsewhere, and every colour from the palette.
 
 import type { Theme } from '../../runtime/palette.ts';
+import { colours } from './colours.ts';
 import { DIAL_MARKS, polar } from './dial.ts';
 import { poleLettersVisible, poleRepeatRad, poleSectors } from './magnet.ts';
 import { blur } from './motion.ts';
@@ -87,8 +88,9 @@ export interface BoxGeometry {
 
 /** The coil's core with turns of wire across it, and its name to the right. */
 export function drawCoil(ctx: CanvasRenderingContext2D, c: BoxGeometry, t: Theme): void {
+  const coil = colours(t).coil;
   ctx.fillStyle = t.ui.background;
-  ctx.strokeStyle = t.parts.coil;
+  ctx.strokeStyle = coil;
   ctx.lineWidth = 2;
   ctx.fillRect(c.x, c.y, c.width, c.height);
   ctx.strokeRect(c.x, c.y, c.width, c.height);
@@ -101,7 +103,7 @@ export function drawCoil(ctx: CanvasRenderingContext2D, c: BoxGeometry, t: Theme
     ctx.lineTo(x + c.height * 0.15, c.y + c.height);
   }
   ctx.stroke();
-  ctx.fillStyle = t.parts.coil;
+  ctx.fillStyle = coil;
   ctx.font = labelFont(13, 600);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -131,12 +133,13 @@ export interface MagnetDrawing {
  */
 export function drawMagnet(ctx: CanvasRenderingContext2D, w: WheelGeometry, m: MagnetDrawing, t: Theme): void {
   const b = blur(m.sweepRad, poleRepeatRad(m.polePairs));
+  const wheel = colours(t).glideWheel;
   ctx.fillStyle = t.ui.background;
   ctx.beginPath();
   ctx.arc(w.cx, w.cy, w.radius, 0, 2 * Math.PI);
   ctx.fill();
 
-  ctx.fillStyle = t.parts.rotor;
+  ctx.fillStyle = wheel;
   ctx.globalAlpha = b.alpha;
   for (let c = 0; c < b.copies; c++) {
     for (const s of poleSectors(m.angleRad - c * b.stepRad, m.polePairs)) {
@@ -146,7 +149,7 @@ export function drawMagnet(ctx: CanvasRenderingContext2D, w: WheelGeometry, m: M
     }
   }
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = t.parts.rotor;
+  ctx.strokeStyle = wheel;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(w.cx, w.cy, w.radius, 0, 2 * Math.PI);
@@ -158,12 +161,16 @@ export function drawMagnet(ctx: CanvasRenderingContext2D, w: WheelGeometry, m: M
     ctx.textBaseline = 'middle';
     for (const s of poleSectors(m.angleRad, m.polePairs)) {
       const p = polar(w.cx, w.cy, w.radius * 0.6, (s.fromRad + s.toRad) / 2);
-      ctx.fillStyle = s.north ? t.ui.background : t.parts.rotor;
+      ctx.fillStyle = s.north ? t.ui.background : wheel;
       ctx.fillText(s.north ? 'N' : 'S', p.x, p.y);
     }
   }
-  drawArbor(ctx, w.cx, w.cy, Math.max(3, w.radius * 0.08), t.parts.hand);
-  ctx.fillStyle = t.parts.rotor;
+  // The wheel's own arbor, so the wheel's colour, not the hands'. A ring of
+  // the background keeps it visible where it sits on a filled north pole.
+  const arborPx = Math.max(3, w.radius * 0.08);
+  drawArbor(ctx, w.cx, w.cy, arborPx + 1.5, t.ui.background);
+  drawArbor(ctx, w.cx, w.cy, arborPx, wheel);
+  ctx.fillStyle = wheel;
   ctx.font = labelFont(13, 600);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';

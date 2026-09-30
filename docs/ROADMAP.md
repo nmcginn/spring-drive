@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M9a (the frame budget), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, and the loop e2e fix as #16.
-- Last session: 2026-09-29, M9a: the scheduler times every tick, a `?budget` panel shows it, and a Playwright spec asserts the budget at every widget's scroll stop. `mainspringEnergyJ`, detailed stepping, and the loop's scope got faster without moving a number. M9 is split into M9a to M9d. Decision 39. No new parameter.
-- Open PRs waiting on review: M9a.
-- Next up: M9b (palette consistency). It needs only M3 to M8, all merged, so it can proceed from `master` while M9a is in review; so can M9c and M9d.
+- Current milestone: M9b (palette consistency), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, the loop e2e fix as #16, and M9a as #17.
+- Last session: 2026-09-30, M9b: one table says which part each drawn thing is coloured as, lint makes widgets use it, and tests hold the prose, every canvas label, and every readout to it in both schemes. Five disagreements fixed (seconds hands, friction, the brake widget's speed curves, the reference, and part labels). Decision 40, and amendments to 15 and 38. No new parameter.
+- Open PRs waiting on review: M9b.
+- Next up: M9c (keyboard access). It needs only M3 to M8, all merged, so it can proceed from `master` while M9b is in review; so can M9d.
 
 ## Open questions for the maintainer
 
@@ -157,9 +157,9 @@ Split along its four items, as its acceptance asked, because they touch differen
 
 ### M9b: Palette consistency
 
-- [ ] **Consistent palette usage across prose and widgets.**
+- [x] **Consistent palette usage across prose and widgets.**
   *Needs:* M3 to M8.
-  *Acceptance:* the item holds.
+  *Acceptance:* the item holds. What "consistent" means, and how it is held, is decision 40.
 
 ### M9c: Keyboard access
 
@@ -184,6 +184,8 @@ Split along its four items, as its acceptance asked, because they touch differen
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M9b: Palette consistency** (2026-09-30). An audit of every part colour the widgets use, and of every label they draw with its fill (recorded in a real browser), found five places where a thing was not the colour the prose gives it. Seconds hands were the glide wheel's blue, even on the intro's mechanical watch; every hand is now the hands' colour. Friction was the train's grey in tri-synchro and neutral in the brake widget; it is the wheel's own friction, so neutral in both. The brake widget drew the wheel's speed in the coil's red; it is the wheel's blue, as in the loop and tri-synchro. The reference was the crystal's violet in the loop and tri-synchro but the IC's teal in the quartz widget; it is violet throughout. And labels naming a part ("Glide wheel speed", "Mainspring", "IC: locking", "Glide wheel stops") were sometimes plain text; each now takes its part's colour. `src/widgets/shared/colours.ts` now says once which part each drawn thing belongs to, and lint stops a widget reading part colours any other way, or writing a colour literal. Readout labels carry their part in the prose's own markup, so the page's `.part` rule colours both and each readout is keyed to its trace. `tests/prose.ts` reads the prose's part names from `index.html`; Vitest checks the table and the readouts against them, and `tests/e2e/palette.spec.ts` checks every canvas label and readout on the page, in both colour schemes, at both widths. The runaway gains a dark-scheme screenshot. Decision 40, and amendments to 15 and 38.
 
 - **M9a: The frame budget** (2026-09-29). The scheduler times every widget's tick and keeps the last four seconds (`src/runtime/budget.ts`). With `?budget` in the URL, a panel shows the mean, 95th percentile, worst, and share over 4 ms, and each widget's mean, with a Measure again button (`src/runtime/budget-overlay.ts`). That is how the budget is checked on a real laptop. `tests/e2e/budget.spec.ts` stops at each widget as a reader would, centred, in its most expensive state, at both widths, in projects that run after everything else and one at a time. It asserts that the widgets' mean tick time is under 4 ms, and so is the main thread's time less canvas rasterising, from Chrome's trace. CI writes every stop's figures into its run summary. The measurements found `mainspringEnergyJ` was O(N²) and called twice a step. It is now one pass, carried between steps, bit-identical, with every scenario CSV byte-identical. The loop's scope now strokes one path per run instead of 1,536. Together these took the widgets, all seven on screen at once, from 4.3 ms to about 2.7 ms a frame. The worst reader's stop, the desktop loop, measures about 2.5 ms. Decision 39.
 

@@ -7,6 +7,7 @@ import type { SimParams } from '../../sim/types.ts';
 import { handAngles } from '../shared/dial.ts';
 import { drawArbor, drawDialFace, drawHand, labelFont } from '../shared/draw.ts';
 import { formatDuration, withUnit } from '../shared/format.ts';
+import { colours } from '../shared/colours.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   CHART_SPAN_S,
@@ -19,6 +20,7 @@ import {
   chartPoint,
   chartX,
   eventLabel,
+  eventRole,
   flows,
   formatPower,
   formatShare,
@@ -33,14 +35,13 @@ import {
   setRateIndex,
   showsSecondsHand,
   skip,
-  status,
   statusLine,
+  statusRole,
   stripY,
   timeLabels,
   triLayout,
   wind,
   type Box,
-  type PowerShare,
   type TriLayout,
   type TriState,
 } from './logic.ts';
@@ -121,45 +122,42 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const watch = handAngles(state.sim.timeS + handsAheadS(state, params));
     const seconds = showsSecondsHand(state);
     const ghost = t.ui.grid;
+    const c = colours(t);
     drawHand(ctx, cx, cy, radius, truth.hourRad, { colour: ghost, widthPx: 4, length: 0.5 });
     drawHand(ctx, cx, cy, radius, truth.minuteRad, { colour: ghost, widthPx: 3, length: 0.78 });
     if (seconds) drawHand(ctx, cx, cy, radius, truth.secondRad, { colour: ghost, widthPx: 1.5, length: 0.92 });
-    drawHand(ctx, cx, cy, radius, watch.hourRad, { colour: t.parts.hand, widthPx: 4, length: 0.5, tail: 0.1 });
-    drawHand(ctx, cx, cy, radius, watch.minuteRad, { colour: t.parts.hand, widthPx: 3, length: 0.78, tail: 0.1 });
+    drawHand(ctx, cx, cy, radius, watch.hourRad, { colour: c.hands, widthPx: 4, length: 0.5, tail: 0.1 });
+    drawHand(ctx, cx, cy, radius, watch.minuteRad, { colour: c.hands, widthPx: 3, length: 0.78, tail: 0.1 });
     if (seconds) {
-      drawHand(ctx, cx, cy, radius, watch.secondRad, { colour: t.parts.rotor, widthPx: 1.5, length: 0.92, tail: 0.18 });
+      drawHand(ctx, cx, cy, radius, watch.secondRad, { colour: c.hands, widthPx: 1.5, length: 0.92, tail: 0.18 });
     }
-    drawArbor(ctx, cx, cy, 3, t.parts.hand);
+    drawArbor(ctx, cx, cy, 3, c.hands);
 
-    const s = status(state);
     ctx.font = labelFont(13, 600);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = s === 'regulating' ? t.parts.ic : t.ui.text;
+    ctx.fillStyle = c[statusRole(state)];
     ctx.fillText(statusLine(state), cx, layout.statusY);
   }
 
   function drawPanel(ctx: CanvasRenderingContext2D, layout: TriLayout, t: Theme) {
     const { panel } = layout;
     const f = flows(state, params);
+    const c = colours(t);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = t.parts.rotor;
+    ctx.fillStyle = c.glideWheel;
     ctx.font = labelFont(13, 600);
     ctx.fillText('Glide wheel power', panel.x, panel.y);
     ctx.fillStyle = t.ui.text;
     ctx.font = labelFont(13);
     ctx.fillText(f.driveW > 0 ? `${formatPower(f.driveW)} from the spring` : 'none', panel.x, panel.y + 18);
 
-    const colours: Record<PowerShare['key'], string> = {
-      friction: t.parts.train,
-      brake: t.parts.coil,
-      charging: t.parts.capacitor,
-    };
     powerShares(f).forEach((share, i) => {
       const bar = panel.bars[i];
       if (!bar) return;
-      ctx.fillStyle = colours[share.key];
+      const colour = share.role ? c[share.role] : t.ui.muted;
+      ctx.fillStyle = colour;
       ctx.font = labelFont(12, 600);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
@@ -170,7 +168,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       ctx.fillText(formatShare(share.share), bar.x + bar.width, bar.y - 3);
       ctx.fillStyle = t.ui.grid;
       ctx.fillRect(bar.x, bar.y, bar.width, bar.height);
-      ctx.fillStyle = colours[share.key];
+      ctx.fillStyle = colour;
       // A share too small to see still gets a sliver, so "1.8 %" has a bar.
       const w = share.share > 0 ? Math.max(2, bar.width * share.share) : 0;
       ctx.fillRect(bar.x, bar.y, w, bar.height);
@@ -178,14 +176,15 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawReserve(ctx: CanvasRenderingContext2D, bar: Box, t: Theme) {
-    ctx.fillStyle = t.parts.mainspring;
+    const spring = colours(t).mainspring;
+    ctx.fillStyle = spring;
     ctx.font = labelFont(13, 600);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
     ctx.fillText('Power reserve', bar.x, bar.y - 5);
     ctx.fillStyle = t.ui.grid;
     ctx.fillRect(bar.x, bar.y, bar.width, bar.height);
-    ctx.fillStyle = t.parts.mainspring;
+    ctx.fillStyle = spring;
     ctx.fillRect(bar.x, bar.y, bar.width * reserveFraction(state, params), bar.height);
     ctx.fillStyle = t.ui.muted;
     ctx.font = labelFont(12);
@@ -197,8 +196,10 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawChart(ctx: CanvasRenderingContext2D, layout: TriLayout, t: Theme) {
-    const colours = { speed: t.parts.rotor, supply: t.parts.capacitor, duty: t.parts.coil } as const;
-    const markColours = { speed: t.parts.quartz, supply: t.parts.ic, duty: t.ui.grid } as const;
+    const c = colours(t);
+    const traceColours = { speed: c.speed, supply: c.supply, duty: c.brake } as const;
+    // 8 rev/s is what the reference asks of the wheel; the brownout is the IC's.
+    const markColours = { speed: c.reference, supply: c.ic, duty: t.ui.grid } as const;
     const now = Math.min(state.sim.timeS, CHART_SPAN_S);
     chartChannels(params).forEach((ch, i) => {
       const box = layout.strips[i];
@@ -236,14 +237,14 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
         }
       }
 
-      ctx.fillStyle = colours[ch.channel];
+      ctx.fillStyle = traceColours[ch.channel];
       ctx.font = labelFont(12, 600);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
       ctx.fillText(ch.title, box.x - 30, box.y - 10);
 
       // The trace so far, as one path, and the present as its last point.
-      ctx.strokeStyle = colours[ch.channel];
+      ctx.strokeStyle = traceColours[ch.channel];
       ctx.lineWidth = 2;
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -299,7 +300,8 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.textBaseline = 'top';
     state.events.slice(0, 3).forEach((e, i) => {
       const y = layout.eventsY + i * EVENT_LINE_PX;
-      ctx.fillStyle = t.ui.text;
+      const role = eventRole(e.kind);
+      ctx.fillStyle = role ? c[role] : t.ui.text;
       ctx.fillText(`${eventLabel(e.kind)} at ${formatDuration(e.timeS)}`, top.x - 30, y);
     });
     if (state.events.length === 0) {

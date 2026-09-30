@@ -27,6 +27,7 @@ import { maxBrakeTorqueNm } from '../../sim/generator.ts';
 import type { SimParams } from '../../sim/types.ts';
 import { radSToRevS } from '../../sim/units.ts';
 import { formatPercent, formatPlayback, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 /** Slow motion at an eighth of real time, as in the earlier sections: a display rate, not physics. */
 export const SLOW_MOTION_RATE = 1 / 8;
@@ -234,14 +235,22 @@ function nNm(torqueNm: number): number {
   return torqueNm * 1e9;
 }
 
-export function readouts(state: LenzState, params: SimParams) {
+export function readouts(state: LenzState, params: SimParams): Readout[] {
   const omega = rotorOmegaRadS(state, params);
   return [
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(omega), 2, 'rev/s') },
-    { label: 'Coil shorted', value: formatPercent(state.duty, 0) },
-    { label: 'Brake torque', value: withUnit(nNm(coastBrakeTorqueNm(omega, state.duty, params)), 1, 'nN·m') },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(omega), 2, 'rev/s') },
+    { label: 'Coil shorted', role: 'coil', value: formatPercent(state.duty, 0) },
+    {
+      label: 'Brake torque',
+      role: 'brake',
+      value: withUnit(nNm(coastBrakeTorqueNm(omega, state.duty, params)), 1, 'nN·m'),
+    },
     { label: 'Friction torque', value: withUnit(nNm(coastFrictionTorqueNm(omega, params)), 1, 'nN·m') },
-    { label: 'Mean coil current', value: withUnit(coastCoilCurrentA(omega, state.duty, params) * 1e6, 2, 'µA') },
+    {
+      label: 'Mean coil current',
+      role: 'coil',
+      value: withUnit(coastCoilCurrentA(omega, state.duty, params) * 1e6, 2, 'µA'),
+    },
     { label: 'Time since let go', value: withUnit(sinceReleaseS(state), 3, 's') },
     { label: 'Playback', value: `${formatPlayback(playbackRate(state))} real time` },
   ] as const;

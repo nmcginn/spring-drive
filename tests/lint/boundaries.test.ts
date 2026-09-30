@@ -37,7 +37,7 @@ function readFixtures(): Fixture[] {
 const fixtures = readFixtures();
 
 describe('architectural lint rules', () => {
-  it('has a fixture for every boundary PLAN.md and the M0 task name', () => {
+  it('has a fixture for every boundary PLAN.md, the M0 task, and decision 40 name', () => {
     const names = fixtures.map((f) => f.file);
     for (const required of [
       'sim-imports-runtime.ts',
@@ -46,6 +46,10 @@ describe('architectural lint rules', () => {
       'sim-math-random.ts',
       'widget-raf.ts',
       'scheduler-raf-allowed.ts',
+      'widget-part-colour.ts',
+      'widget-parts-destructured.ts',
+      'widget-hex-colour.ts',
+      'colours-parts-allowed.ts',
     ]) {
       expect(names).toContain(required);
     }
