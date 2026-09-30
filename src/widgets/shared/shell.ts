@@ -9,10 +9,17 @@ import { createHiDpiCanvas, type CanvasSize } from '../../runtime/canvas.ts';
 import { createMotionButton } from '../../runtime/controls.ts';
 import { onSchemeChange, theme, type Theme } from '../../runtime/palette.ts';
 import type { Handle, Scheduler, WidgetStatus } from '../../runtime/scheduler.ts';
+import { rolePart, type Role } from './colours.ts';
 
 export interface Readout {
   label: string;
   value: string;
+  /**
+   * Whose colour the label takes: the colour the widget draws this quantity
+   * in, so a readout is keyed to its trace or bar the way prose is keyed to
+   * the drawing. None for a quantity that belongs to no one part.
+   */
+  role?: Role;
 }
 
 export interface ShellOptions {
@@ -51,9 +58,14 @@ export function createShell(opts: ShellOptions): Shell {
 
   const readoutList = document.createElement('dl');
   readoutList.className = 'readouts';
-  const valueCells = opts.readouts().map(({ label }) => {
+  const valueCells = opts.readouts().map(({ label, role }) => {
     const dt = document.createElement('dt');
     dt.textContent = label;
+    // The prose's own markup, so the page's one `.part` rule colours both.
+    if (role) {
+      dt.className = 'part';
+      dt.dataset.part = rolePart(role);
+    }
     const dd = document.createElement('dd');
     readoutList.append(dt, dd);
     return dd;

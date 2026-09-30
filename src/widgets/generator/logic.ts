@@ -15,6 +15,7 @@ import { emfFrequencyHz, emfV, instantaneousEmfV, peakEmfV } from '../../sim/gen
 import type { SimParams } from '../../sim/types.ts';
 import { radSToRevS, revSToRadS } from '../../sim/units.ts';
 import { formatPlayback, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 /**
  * Slow motion runs the page's clock at an eighth of real time, as in the
@@ -192,13 +193,13 @@ export function scopeGridV(scaleV: number): number[] {
 
 // Readouts ---------------------------------------------------------------------
 
-export function readouts(state: GeneratorState, params: SimParams) {
+export function readouts(state: GeneratorState, params: SimParams): Readout[] {
   const omega = rotorOmegaRadS(state);
   return [
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(omega), 1, 'rev/s') },
-    { label: 'EMF frequency', value: withUnit(emfFrequencyHz(omega, params), 1, 'Hz') },
-    { label: 'Peak EMF', value: withUnit(peakEmfV(omega, params), 2, 'V') },
-    { label: 'Rectified mean EMF', value: withUnit(emfV(omega, params), 2, 'V') },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(omega), 1, 'rev/s') },
+    { label: 'EMF frequency', role: 'coil', value: withUnit(emfFrequencyHz(omega, params), 1, 'Hz') },
+    { label: 'Peak EMF', role: 'coil', value: withUnit(peakEmfV(omega, params), 2, 'V') },
+    { label: 'Rectified mean EMF', role: 'coil', value: withUnit(emfV(omega, params), 2, 'V') },
     { label: 'Playback', value: `${formatPlayback(playbackRate(state))} real time` },
   ] as const;
 }

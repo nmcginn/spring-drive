@@ -26,6 +26,7 @@ import {
 import type { SimParams } from '../../sim/types.ts';
 import { TAU } from '../../sim/units.ts';
 import { formatCount, formatDuration, formatPlayback, formatShortTime, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 /**
  * The diagram shows the last second of page time, whatever the speed, so
@@ -176,18 +177,23 @@ export function tickIntervalText(state: QuartzState, params: SimParams): string 
   return withUnit(s, s < 1 ? 3 : 0, 's');
 }
 
-export function readouts(state: QuartzState, params: SimParams) {
+export function readouts(state: QuartzState, params: SimParams): Readout[] {
   const perTick = cyclesPerReferenceTick(params);
   return [
     { label: 'Playback', value: `${formatPlayback(playbackRate(state))} real time` },
-    { label: 'Crystal, on screen', value: `${formatCount(onScreenHz(state, 0, params))}\u202fHz` },
-    { label: 'A reference tick every', value: tickIntervalText(state, params) },
+    { label: 'Crystal, on screen', role: 'crystal', value: `${formatCount(onScreenHz(state, 0, params))}\u202fHz` },
+    { label: 'A reference tick every', role: 'reference', value: tickIntervalText(state, params) },
     // The range goes in the label, so the value is short enough for one line at 380 px.
     {
       label: `Counter, 0 to ${formatCount(perTick - 1)}`,
+      role: 'ic',
       value: `${formatCount(counterValue(state.cycles, params))}\u202fcycles`,
     },
-    { label: 'Reference ticks given', value: `${formatCount(referenceTicks(state.cycles, params))}\u202fticks` },
+    {
+      label: 'Reference ticks given',
+      role: 'reference',
+      value: `${formatCount(referenceTicks(state.cycles, params))}\u202fticks`,
+    },
   ] as const;
 }
 

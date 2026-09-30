@@ -25,6 +25,7 @@ import { cyclesPerReferenceTick, cyclesPerStep } from '../../sim/quartz.ts';
 import type { Sample, SimControls, SimParams, SimState } from '../../sim/types.ts';
 import { TAU, radSToRevS } from '../../sim/units.ts';
 import { UNIT_SPACE, formatDuration, formatPercent, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 /** The scope shows this much sim time, s. Long enough to hold a relock from a knock (within 3.0 s, test 6) with the knock still in view. */
 export const SCOPE_WINDOW_S = 8;
@@ -310,18 +311,23 @@ export function formatOffset(seconds: number): string {
   return signed(withUnit(seconds, 2, 's'), seconds, 2);
 }
 
-export function readouts(state: LoopState, params: SimParams) {
+export function readouts(state: LoopState, params: SimParams): Readout[] {
   return [
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
-    { label: 'Phase error', value: formatPhase(phaseErrorRad(state.sim, params)) },
-    { label: 'Brake duty', value: formatPercent(currentDuty(state)) },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
+    { label: 'Phase error', role: 'ic', value: formatPhase(phaseErrorRad(state.sim, params)) },
+    { label: 'Brake duty', role: 'brake', value: formatPercent(currentDuty(state)) },
     {
       label: 'Brake torque',
+      role: 'brake',
       value: withUnit(currentDuty(state) * maxBrakeTorqueNm(state.sim.rotorOmegaRadS, params) * 1e9, 1, 'nN·m'),
     },
     { label: 'Locked for', value: formatDuration(lockedForS(state)) },
-    { label: 'Hands vs true time', value: formatOffset(handsAheadS(state, params)) },
-    { label: 'Mainspring wound', value: formatPercent(windFraction(state.sim.barrelAngleRad, params)) },
+    { label: 'Hands vs true time', role: 'hands', value: formatOffset(handsAheadS(state, params)) },
+    {
+      label: 'Mainspring wound',
+      role: 'mainspring',
+      value: formatPercent(windFraction(state.sim.barrelAngleRad, params)),
+    },
   ] as const;
 }
 

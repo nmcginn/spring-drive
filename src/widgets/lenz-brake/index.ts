@@ -10,6 +10,7 @@ import { polar } from '../shared/dial.ts';
 import { drawCoil, drawMagnet, labelFont } from '../shared/draw.ts';
 import { formatPercent, withUnit } from '../shared/format.ts';
 import { placeLabels } from '../shared/labels.ts';
+import { colours } from '../shared/colours.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   DUTY_STEP,
@@ -125,7 +126,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawSwitchState(ctx: CanvasRenderingContext2D, c: Box, t: Theme) {
-    ctx.fillStyle = t.parts.coil;
+    ctx.fillStyle = colours(t).coil;
     ctx.font = labelFont(12);
     // Left of the coil, since its name is on the right and the torque arcs
     // come up the wheel's right side.
@@ -168,14 +169,8 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   function drawTorqueArcs(ctx: CanvasRenderingContext2D, layout: LenzLayout, t: Theme) {
     const { cx, cy } = layout.wheel;
     const omega = rotorOmegaRadS(state, params);
-    arc(
-      ctx,
-      cx,
-      cy,
-      layout.brakeArcRadius,
-      torqueArcRad(coastBrakeTorqueNm(omega, state.duty, params), params),
-      t.parts.coil,
-    );
+    const brake = colours(t).brake;
+    arc(ctx, cx, cy, layout.brakeArcRadius, torqueArcRad(coastBrakeTorqueNm(omega, state.duty, params), params), brake);
     arc(ctx, cx, cy, layout.frictionArcRadius, torqueArcRad(coastFrictionTorqueNm(omega, params), params), t.ui.muted);
 
     // A key to the arcs, centred under the wheel's name.
@@ -183,7 +178,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     const items = [
-      { text: 'brake torque', colour: t.parts.coil },
+      { text: 'brake torque', colour: brake },
       { text: 'friction', colour: t.ui.muted },
     ];
     const swatch = 14;
@@ -214,6 +209,10 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawPlot(ctx: CanvasRenderingContext2D, box: Box, t: Theme) {
+    // The curves are the wheel's speed, so they take the wheel's colour, as
+    // speed does in every widget; each run is named by its coil setting, in
+    // the coil's.
+    const c = colours(t);
     ctx.fillStyle = t.ui.background;
     ctx.fillRect(box.x, box.y, box.width, box.height);
 
@@ -247,7 +246,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       }
     }
 
-    ctx.fillStyle = t.parts.rotor;
+    ctx.fillStyle = c.speed;
     ctx.font = labelFont(13, 600);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
@@ -260,7 +259,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.setLineDash([5, 4]);
     traceRun(ctx, box, openCoil);
     ctx.setLineDash([]);
-    ctx.strokeStyle = t.parts.coil;
+    ctx.strokeStyle = c.speed;
     ctx.globalAlpha = 0.4;
     for (const run of state.history) traceRun(ctx, box, run);
     ctx.globalAlpha = 1;
@@ -271,7 +270,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       const last = run.points.at(-1);
       if (last && !isStopped(state)) {
         const now = plotPoint(box, last.timeS, last.omegaRadS, windowS, speedMax);
-        ctx.fillStyle = t.parts.coil;
+        ctx.fillStyle = c.speed;
         ctx.beginPath();
         ctx.arc(now.x, now.y, 4, 0, TAU);
         ctx.fill();
@@ -307,7 +306,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       box.x,
       box.x + box.width,
     );
-    ctx.fillStyle = t.parts.coil;
+    ctx.fillStyle = c.coil;
     named.forEach((f, i) => {
       const span = spans[i];
       if (!span) return;

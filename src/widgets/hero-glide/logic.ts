@@ -19,6 +19,7 @@ import type { SimParams, SimState } from '../../sim/types.ts';
 import { TAU, radSToRevS } from '../../sim/units.ts';
 import { SECONDS_PER_MINUTE, type Point } from '../shared/dial.ts';
 import { formatPlayback, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 const REGULATED = { brakeEnabled: true } as const;
 
@@ -96,10 +97,10 @@ export function beatStepRad(beatHz: number = MECHANICAL_BEAT_HZ): number {
 
 // Readouts ---------------------------------------------------------------------
 
-export function readouts(state: HeroState) {
+export function readouts(state: HeroState): Readout[] {
   const degreesPerBeat = (beatStepRad() * 360) / TAU;
   return [
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(state.sim.rotorOmegaRadS), 3, 'rev/s') },
     { label: 'Mechanical watch', value: withUnit(MECHANICAL_BEAT_HZ, 0, 'beats/s') },
     // The degree sign takes no space before it.
     { label: 'Mechanical hand steps', value: `${degreesPerBeat.toFixed(2)}° a beat` },

@@ -28,6 +28,7 @@ import { fullWindAngleRad, windFraction } from '../../sim/mainspring.ts';
 import type { AveragedState, SimParams, SimState } from '../../sim/types.ts';
 import { radSToRevS } from '../../sim/units.ts';
 import { formatDuration, formatPercent, formatRatio, withUnit } from '../shared/format.ts';
+import type { Readout } from '../shared/shell.ts';
 
 const UNBRAKED = { brakeEnabled: false } as const;
 
@@ -149,13 +150,13 @@ export function speedScaleMaxRevS(params: SimParams): number {
 
 // Readouts ---------------------------------------------------------------------
 
-export function readouts(state: RunawayState, params: SimParams) {
+export function readouts(state: RunawayState, params: SimParams): Readout[] {
   return [
-    { label: 'Glide wheel speed', value: withUnit(radSToRevS(rotorOmegaRadS(state)), 1, 'rev/s') },
-    { label: 'Hands run at', value: `${formatRatio(speedRatio(state, params))} real time` },
-    { label: 'Hands show', value: formatDuration(shownS(state, params)) },
+    { label: 'Glide wheel speed', role: 'speed', value: withUnit(radSToRevS(rotorOmegaRadS(state)), 1, 'rev/s') },
+    { label: 'Hands run at', role: 'hands', value: `${formatRatio(speedRatio(state, params))} real time` },
+    { label: 'Hands show', role: 'hands', value: formatDuration(shownS(state, params)) },
     { label: 'True time', value: formatDuration(trueS(state)) },
-    { label: 'Mainspring wound', value: formatPercent(woundFraction(state, params)) },
+    { label: 'Mainspring wound', role: 'mainspring', value: formatPercent(woundFraction(state, params)) },
   ] as const;
 }
 

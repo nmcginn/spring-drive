@@ -8,6 +8,7 @@ import type { SimParams } from '../../sim/types.ts';
 import { TAU, radSToRevS, wrapAngleRad } from '../../sim/units.ts';
 import { drawCoil, drawMagnet, labelFont } from '../shared/draw.ts';
 import { withUnit } from '../shared/format.ts';
+import { colours } from '../shared/colours.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   SCOPE_WINDOW_S,
@@ -103,6 +104,8 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawScope(ctx: CanvasRenderingContext2D, box: Box, t: Theme) {
+    // The EMF is the coil's, so its trace, mean, and title take the coil's colour.
+    const emf = colours(t).coil;
     ctx.fillStyle = t.ui.background;
     ctx.fillRect(box.x, box.y, box.width, box.height);
 
@@ -123,7 +126,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       }
     }
 
-    ctx.fillStyle = t.parts.coil;
+    ctx.fillStyle = emf;
     ctx.font = labelFont(13, 600);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
@@ -135,7 +138,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const legendRight = box.x + box.width;
     ctx.fillText('rectified mean', legendRight, box.y - 5);
     const dashRight = legendRight - ctx.measureText('rectified mean').width - 6;
-    ctx.strokeStyle = t.parts.coil;
+    ctx.strokeStyle = emf;
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
@@ -157,7 +160,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const mean = emfV(rotorOmegaRadS(state), params);
     if (mean > 0) {
       const y = scopePoint(box, 0, 2, mean, scaleV).y;
-      ctx.strokeStyle = t.parts.coil;
+      ctx.strokeStyle = emf;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(box.x, y);
@@ -169,7 +172,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     // One sample per CSS pixel: at the top speed a cycle is 20 px wide on a phone.
     const n = Math.max(2, Math.round(box.width) + 1);
     const trace = emfTrace(state, params, n);
-    ctx.strokeStyle = t.parts.coil;
+    ctx.strokeStyle = emf;
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -180,7 +183,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     });
     ctx.stroke();
     const now = scopePoint(box, n - 1, n, trace[n - 1] ?? 0, scaleV);
-    ctx.fillStyle = t.parts.coil;
+    ctx.fillStyle = emf;
     ctx.beginPath();
     ctx.arc(now.x, now.y, 4, 0, TAU);
     ctx.fill();

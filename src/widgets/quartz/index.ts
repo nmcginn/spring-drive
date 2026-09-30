@@ -8,6 +8,7 @@ import type { SimParams } from '../../sim/types.ts';
 import { TAU } from '../../sim/units.ts';
 import { labelFont } from '../shared/draw.ts';
 import { formatCount } from '../shared/format.ts';
+import { colours } from '../shared/colours.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   advanceQuartz,
@@ -87,6 +88,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   function drawFork(ctx: CanvasRenderingContext2D, layout: QuartzLayout, t: Theme): void {
     const f = layout.fork;
     const fork = forkDrawing(state, params);
+    const crystal = colours(t).crystal;
     const top = f.baseY - f.tineLength;
     const tine = (side: -1 | 1, spread: number) => {
       const x = f.cx + side * (f.gap / 2 + f.tineWidth / 2 + spread * f.swing);
@@ -95,7 +97,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       ctx.lineTo(x, top);
       ctx.stroke();
     };
-    ctx.strokeStyle = t.parts.quartz;
+    ctx.strokeStyle = crystal;
     ctx.lineCap = 'round';
     ctx.lineWidth = f.tineWidth;
     if (fork.blurred) {
@@ -112,7 +114,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     }
     // The bridge joining the tines, and the stem the crystal is mounted by.
     const bridge = f.gap + 2 * f.tineWidth;
-    ctx.fillStyle = t.parts.quartz;
+    ctx.fillStyle = crystal;
     ctx.fillRect(f.cx - bridge / 2, f.baseY - f.tineWidth / 2, bridge, f.tineWidth);
     ctx.fillRect(f.cx - f.tineWidth / 2, f.baseY, f.tineWidth, f.tineWidth * 1.5);
     ctx.lineCap = 'butt';
@@ -121,7 +123,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.textBaseline = 'top';
     if (layout.wide) {
       ctx.textAlign = 'center';
-      ctx.fillStyle = t.parts.quartz;
+      ctx.fillStyle = crystal;
       ctx.font = labelFont(13, 600);
       ctx.fillText('quartz crystal', f.cx, nameY);
       ctx.fillStyle = t.ui.muted;
@@ -131,7 +133,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       // Beside the fork, so the narrow layout spends no height on the name.
       const x = f.cx + bridge / 2 + f.swing + 14;
       ctx.textAlign = 'left';
-      ctx.fillStyle = t.parts.quartz;
+      ctx.fillStyle = crystal;
       ctx.font = labelFont(13, 600);
       ctx.fillText('quartz crystal', x, top + 6);
       ctx.fillStyle = t.ui.muted;
@@ -143,6 +145,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   function drawDiagram(ctx: CanvasRenderingContext2D, layout: QuartzLayout, t: Theme): void {
     const { x, width, top, rowPitch } = layout.traces;
     const bottom = top + rowPitch * chain.length;
+    const c = colours(t);
     ctx.fillStyle = t.ui.background;
     ctx.fillRect(x, top, width, bottom - top);
 
@@ -150,7 +153,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const titleY = top - 6;
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'left';
-    ctx.fillStyle = t.parts.ic;
+    ctx.fillStyle = c.ic;
     ctx.font = labelFont(13, 600);
     ctx.fillText('Divider outputs', layout.diagramLeft, titleY);
     ctx.textAlign = 'right';
@@ -161,12 +164,12 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.fillText(legend, legendRight, titleY);
     const swatchRight = legendRight - ctx.measureText(legend).width - 6;
     ctx.globalAlpha = FAINT_ALPHA;
-    ctx.fillStyle = t.parts.ic;
+    ctx.fillStyle = c.ic;
     ctx.fillRect(swatchRight - 16, titleY - 12, 16, 2 * TRACE_HALF_HEIGHT_PX);
     ctx.globalAlpha = 1;
 
     // Reference ticks: every divider falls at once as the counter rolls over.
-    ctx.strokeStyle = t.parts.ic;
+    ctx.strokeStyle = c.reference;
     ctx.globalAlpha = FAINT_ALPHA;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
@@ -182,8 +185,10 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const lamps = levelsNow(state, width, params);
     chain.forEach((hz, stage) => {
       const cy = rowCentreY(layout, stage);
-      const colour = stage === 0 ? t.parts.quartz : t.parts.ic;
+      // The crystal at the top and the reference at the bottom, in the
+      // colours the other sections draw them in; the IC's stages between.
       const isReference = stage === referenceStage;
+      const colour = stage === 0 ? c.crystal : isReference ? c.reference : c.ic;
 
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
@@ -240,7 +245,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.fillText(windowStartText(state), x, bottom + 4);
     ctx.textAlign = 'right';
     ctx.fillText('now', x + width, bottom + 4);
-    ctx.fillStyle = t.parts.ic;
+    ctx.fillStyle = c.reference;
     ctx.fillText('reference', layout.labelRight, bottom + 4);
   }
 

@@ -10,6 +10,7 @@ import { polar } from '../shared/dial.ts';
 import { drawCoil, drawMagnet, labelFont } from '../shared/draw.ts';
 import { formatPercent } from '../shared/format.ts';
 import { placeLabels } from '../shared/labels.ts';
+import { colours } from '../shared/colours.ts';
 import { createShell } from '../shared/shell.ts';
 import {
   advanceLoop,
@@ -114,7 +115,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   }
 
   function drawSwitchState(ctx: CanvasRenderingContext2D, c: Box, t: Theme) {
-    ctx.fillStyle = t.parts.coil;
+    ctx.fillStyle = colours(t).coil;
     ctx.font = labelFont(12);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -122,12 +123,12 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     ctx.fillText(duty > 0 ? `shorted ${formatPercent(duty, 0)}` : 'open', c.x - 6, c.y + c.height / 2);
   }
 
-  /** A quartz-coloured pointer at 12 o'clock: where the north pole should be at every reference tick. */
+  /** A pointer in the reference's colour at 12 o'clock: where the north pole should be at every reference tick. */
   function drawReferenceMark(ctx: CanvasRenderingContext2D, layout: LoopLayout, t: Theme) {
     const { cx, cy, radius } = layout.wheel;
     const tip = polar(cx, cy, radius + 1, 0);
     const size = Math.max(6, radius * 0.14);
-    ctx.fillStyle = t.parts.quartz;
+    ctx.fillStyle = colours(t).reference;
     ctx.beginPath();
     ctx.moveTo(tip.x, tip.y);
     ctx.lineTo(tip.x - size * 0.6, tip.y - size);
@@ -148,14 +149,17 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
     const s = status(state);
     ctx.font = labelFont(13, 600);
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = s === 'locked' ? t.parts.ic : t.ui.text;
+    // The IC's colour whatever its state, since the line names it; the words
+    // say whether it is locked, for every reader.
+    ctx.fillStyle = colours(t).ic;
     ctx.fillText(s === 'locked' ? 'IC: locked' : `IC: ${s}`, cx, layout.statusY);
   }
 
   function drawScope(ctx: CanvasRenderingContext2D, layout: LoopLayout, t: Theme) {
     const now = state.sim.timeS;
     let titleEnd = 0;
-    const colours = { speed: t.parts.rotor, phase: t.parts.ic, duty: t.parts.coil } as const;
+    const c = colours(t);
+    const traceColours = { speed: c.speed, phase: c.ic, duty: c.brake } as const;
     scopeChannels(params).forEach((ch, i) => {
       const box = layout.strips[i];
       if (!box) return;
@@ -170,7 +174,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       for (const v of ch.grid) {
         const { y } = stripY(box, v, ch.min, ch.max);
         const target = v === ch.target;
-        ctx.strokeStyle = target ? t.parts.quartz : t.ui.grid;
+        ctx.strokeStyle = target ? c.reference : t.ui.grid;
         ctx.setLineDash(target ? [4, 3] : []);
         ctx.beginPath();
         ctx.moveTo(box.x, y);
@@ -181,7 +185,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       }
       ctx.setLineDash([]);
 
-      ctx.fillStyle = colours[ch.channel];
+      ctx.fillStyle = traceColours[ch.channel];
       ctx.font = labelFont(12, 600);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
@@ -189,7 +193,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       if (i === 0) titleEnd = box.x - 30 + ctx.measureText(ch.title).width;
 
       // The trace. Off the scale, it is pinned to the edge and drawn thin and faint.
-      ctx.strokeStyle = colours[ch.channel];
+      ctx.strokeStyle = traceColours[ch.channel];
       ctx.lineJoin = 'round';
       const traced = state.history.map((p) => ({
         x: scopeX(box, p.timeS, now),
@@ -205,7 +209,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
       const prev = traced.at(-1);
       ctx.globalAlpha = 1;
       if (prev?.clipped) {
-        ctx.fillStyle = colours[ch.channel];
+        ctx.fillStyle = traceColours[ch.channel];
         ctx.font = labelFont(11);
         ctx.textAlign = 'right';
         ctx.textBaseline = prev.y <= box.y + 1 ? 'top' : 'bottom';
