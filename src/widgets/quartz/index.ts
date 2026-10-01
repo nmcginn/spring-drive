@@ -63,6 +63,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
   const slow = createSlider({
     label: 'Slow the crystal down',
+    ariaLabel: 'Slow the crystal down, by powers of two',
     min: 0,
     max: maxSlowExponent(params),
     step: 1,

@@ -205,7 +205,7 @@ test.describe('runaway', () => {
   test('fast-forwards an hour a second, and back to real time', async ({ page, snap }) => {
     await open(page, 'runaway', RUNAWAY);
     await press(page.getByRole('button', { name: 'Wind the mainspring fully and set the hands to 12:00' }));
-    const ff = page.getByRole('button', { name: 'Fast-forward, one hour each second' });
+    const ff = page.getByRole('button', { name: 'Fast-forward, 1 h/s: one hour each second' });
     await press(ff);
     await expect(ff).toHaveAttribute('aria-pressed', 'true');
     // Hours pass on the true-time readout within a couple of seconds.
@@ -310,7 +310,7 @@ test.describe('generator', () => {
 
 test.describe('lenz-brake', () => {
   const load = (page: Page) => page.getByRole('slider', { name: 'Coil shorted' });
-  const letGo = (page: Page) => page.getByRole('button', { name: 'Let the glide wheel go from 8 rev/s' });
+  const letGo = (page: Page) => page.getByRole('button', { name: 'Let go at 8 rev/s: release the glide wheel' });
   const value = async (page: Page, label: string) => parseFloat((await readout(page, LENZ, label).textContent()) ?? '');
   /** Wait until the wheel has stopped: the speed reads zero. */
   const stopped = (page: Page) =>
@@ -485,9 +485,9 @@ test.describe('quartz', () => {
 
 test.describe('loop', () => {
   const faster = (page: Page) =>
-    page.getByRole('button', { name: 'Knock the watch so the glide wheel speeds up by 2 rev/s' });
+    page.getByRole('button', { name: 'Knock +2 rev/s: a knock that speeds the glide wheel up by 2 rev/s' });
   const slower = (page: Page) =>
-    page.getByRole('button', { name: 'Knock the watch so the glide wheel slows down by 2 rev/s' });
+    page.getByRole('button', { name: 'Knock −2 rev/s: a knock that slows the glide wheel down by 2 rev/s' });
   const regulation = (page: Page) =>
     page.getByRole('button', { name: 'Regulation: the IC brakes the glide wheel to hold it on the reference' });
   const value = async (page: Page, label: string) =>
@@ -585,7 +585,7 @@ test.describe('loop', () => {
 
 test.describe('tri-synchro', () => {
   const time = (page: Page) => page.getByRole('slider', { name: 'Time runs at' });
-  const skip = (page: Page) => page.getByRole('button', { name: 'Skip six hours ahead' });
+  const skip = (page: Page) => page.getByRole('button', { name: 'Skip 6 h: six hours ahead' });
   const wind = (page: Page) =>
     page.getByRole('button', { name: 'Wind the mainspring fully and start the reserve again from 0 h' });
   const hoursIn = async (page: Page) => {
@@ -777,16 +777,16 @@ test.describe('page', () => {
     expect(box && box.x >= 0 && box.x + box.width <= width).toBe(true);
     await snap(page, 'budget-overlay');
 
-    await press(page.getByRole('button', { name: 'Measure the frame budget again from now' }));
+    await press(page.getByRole('button', { name: 'Measure again: the frame budget from now' }));
     await expect(panel).toContainText(/Frames\s*\d+/);
     // Paused, no widget ticks, so after measuring again there is nothing to show.
     await press(page.getByRole('button', { name: 'Pause animations' }));
-    await press(page.getByRole('button', { name: 'Measure the frame budget again from now' }));
+    await press(page.getByRole('button', { name: 'Measure again: the frame budget from now' }));
     await expect(panel).toContainText('none: no widget is animating');
 
     // It folds away, on a phone, from the widget it is measuring.
     await press(panel.getByText('Widget time per frame'));
-    await expect(panel.getByRole('button', { name: 'Measure the frame budget again from now' })).toBeHidden();
+    await expect(panel.getByRole('button', { name: 'Measure again: the frame budget from now' })).toBeHidden();
   });
 
   test('stops on global pause, with a screenshot of the paused page', async ({ page, snap }) => {

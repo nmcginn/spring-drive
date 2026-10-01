@@ -36,10 +36,10 @@ describe('createToggle', () => {
   it('takes an accessible name when the visible label is not enough', () => {
     const toggle = createToggle({
       label: 'Fast-forward, 1 h/s',
-      ariaLabel: 'Fast-forward, one hour each second',
+      ariaLabel: 'Fast-forward, 1 h/s: one hour each second',
       onChange: () => {},
     });
-    expect(toggle.element.getAttribute('aria-label')).toBe('Fast-forward, one hour each second');
+    expect(toggle.element.getAttribute('aria-label')).toBe('Fast-forward, 1 h/s: one hour each second');
   });
 });
 
@@ -47,6 +47,7 @@ describe('createSlider', () => {
   function make(onInput = vi.fn()) {
     const slider = createSlider({
       label: 'Glide wheel speed',
+      ariaLabel: 'Glide wheel speed, turning the generator',
       min: 0,
       max: 16,
       step: 0.1,
@@ -74,6 +75,11 @@ describe('createSlider', () => {
       '0.1',
       '8',
     ]);
+  });
+
+  it('has an ARIA label that begins with its visible label and says what it acts on', () => {
+    const { slider } = make();
+    expect(slider.input.getAttribute('aria-label')).toBe('Glide wheel speed, turning the generator');
   });
 
   it('announces its value with the unit', () => {

@@ -69,7 +69,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
   const faster = createButton({
     label: 'Knock +2 rev/s',
-    ariaLabel: 'Knock the watch so the glide wheel speeds up by 2 rev/s',
+    ariaLabel: 'Knock +2 rev/s: a knock that speeds the glide wheel up by 2 rev/s',
     onPress: () => {
       state = knock(state, 1, live, params);
       shell.render();
@@ -77,7 +77,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   });
   const slower = createButton({
     label: 'Knock −2 rev/s',
-    ariaLabel: 'Knock the watch so the glide wheel slows down by 2 rev/s',
+    ariaLabel: 'Knock −2 rev/s: a knock that slows the glide wheel down by 2 rev/s',
     onPress: () => {
       state = knock(state, -1, live, params);
       shell.render();

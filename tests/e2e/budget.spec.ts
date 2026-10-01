@@ -37,7 +37,7 @@ const STOPS: Stop[] = [
     widget: 'runaway',
     setUp: async (page) => {
       await press(page.getByRole('button', { name: 'Wind the mainspring fully and set the hands to 12:00' }));
-      await press(page.getByRole('button', { name: 'Fast-forward, one hour each second' }));
+      await press(page.getByRole('button', { name: 'Fast-forward, 1 h/s: one hour each second' }));
     },
   },
   {
@@ -48,7 +48,7 @@ const STOPS: Stop[] = [
   {
     name: 'lenz-brake, let go',
     widget: 'lenz-brake',
-    setUp: (page) => press(page.getByRole('button', { name: 'Let the glide wheel go from 8 rev/s' })),
+    setUp: (page) => press(page.getByRole('button', { name: 'Let go at 8 rev/s: release the glide wheel' })),
   },
   { name: 'quartz', widget: 'quartz' },
   {
@@ -98,7 +98,7 @@ for (const stop of STOPS) {
     await frames(page, 30);
 
     // The widgets' own time, as the page measures it on any machine.
-    await page.getByRole('button', { name: 'Measure the frame budget again from now' }).click();
+    await page.getByRole('button', { name: 'Measure again: the frame budget from now' }).click();
     await frames(page, MEASURED_FRAMES);
     await expect.poll(async () => (await summary(page)).frames).toBeGreaterThanOrEqual(MEASURED_FRAMES);
     const s = await summary(page);

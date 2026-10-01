@@ -1,6 +1,7 @@
 import './style.css';
 import { budgetRequested, mountBudgetOverlay } from './runtime/budget-overlay.ts';
 import { getScheduler } from './runtime/scheduler.ts';
+import { holdTabStop, onceEach } from './runtime/slots.ts';
 import { WIDGETS } from './widgets/registry.ts';
 
 /**
@@ -10,20 +11,24 @@ import { WIDGETS } from './widgets/registry.ts';
  */
 const LAZY_MOUNT_MARGIN = '100% 0px';
 
-function mountSlot(slot: HTMLElement): void {
+/** Mounts a slot's widget once, whether scrolling or focus reaches it first. */
+const mountSlot = onceEach(async (slot) => {
   const id = slot.dataset.widget ?? '';
   const load = WIDGETS[id];
   if (!load) {
     console.error(`No widget registered for data-widget="${id}"`);
-    return;
+    return false;
   }
-  load()
-    .then(({ mount }) => {
-      mount(slot);
-      slot.dataset.mounted = 'true';
-    })
-    .catch((error: unknown) => console.error(error));
-}
+  try {
+    const { mount } = await load();
+    mount(slot);
+    slot.dataset.mounted = 'true';
+    return true;
+  } catch (error: unknown) {
+    console.error(error);
+    return false;
+  }
+});
 
 function mountLazily(slots: HTMLElement[]): void {
   const observer = new IntersectionObserver(
@@ -31,12 +36,17 @@ function mountLazily(slots: HTMLElement[]): void {
       for (const record of records) {
         if (!record.isIntersecting) continue;
         observer.unobserve(record.target);
-        mountSlot(record.target as HTMLElement);
+        void mountSlot(record.target as HTMLElement);
       }
     },
     { rootMargin: LAZY_MOUNT_MARGIN },
   );
-  for (const slot of slots) observer.observe(slot);
+  for (const slot of slots) {
+    // Tab reaches a slot before scrolling does, and a slot with no widget
+    // in it yet has no controls to focus (decision 41).
+    holdTabStop(slot, mountSlot);
+    observer.observe(slot);
+  }
 }
 
 function wireGlobalPause(button: HTMLButtonElement): void {

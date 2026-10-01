@@ -7,7 +7,11 @@ import type { Handle, WidgetStatus } from './scheduler.ts';
 export interface ButtonOptions {
   label: string;
   onPress: () => void;
-  /** Accessible name, when the visible label alone is ambiguous. */
+  /**
+   * Accessible name, when the visible label alone is ambiguous. It begins
+   * with the visible label, so a reader using voice control can say what
+   * they see (WCAG 2.5.3, Label in Name; decision 41).
+   */
   ariaLabel?: string;
 }
 
@@ -127,6 +131,13 @@ export function sliderValue(raw: string, min: number, max: number, step: number,
 export interface SliderOptions {
   /** The visible label. It names the quantity the slider sets. */
   label: string;
+  /**
+   * The slider's accessible name: its visible label, then what it acts on,
+   * so it stands alone in a screen reader's list of the page's controls,
+   * where "Coil shorted" alone says nothing of which widget it belongs to.
+   * Required, because every slider on the page needs one (decision 41).
+   */
+  ariaLabel: string;
   min: number;
   max: number;
   step: number;
@@ -146,8 +157,9 @@ export interface Slider {
 
 /**
  * A native range input under a visible label. Native, so it drags by touch,
- * steps with the arrow keys, and is announced as a slider, with no extra
- * code; `aria-valuetext` adds the unit to what is announced.
+ * steps with the arrow keys (and PageUp, PageDown, Home, and End), and is
+ * announced as a slider, with no extra code; `aria-label` names it, and
+ * `aria-valuetext` adds the unit to what is announced.
  */
 export function createSlider(options: SliderOptions): Slider {
   const element = document.createElement('label');
@@ -161,6 +173,7 @@ export function createSlider(options: SliderOptions): Slider {
   input.max = String(options.max);
   input.step = String(options.step);
   input.value = String(options.initial);
+  input.setAttribute('aria-label', options.ariaLabel);
   element.append(text, input);
 
   let current = options.initial;

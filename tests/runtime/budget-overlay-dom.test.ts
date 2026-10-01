@@ -90,7 +90,7 @@ describe('mountBudgetOverlay', () => {
     mountBudgetOverlay(scheduler);
     env.frames(0, 10, 1000 / 60);
     const again = document.querySelector<HTMLButtonElement>('.budget-overlay button');
-    expect(again?.getAttribute('aria-label')).toBe('Measure the frame budget again from now');
+    expect(again?.getAttribute('aria-label')).toBe('Measure again: the frame budget from now');
     again?.click();
     expect(scheduler.frameCosts().frames).toBe(0);
     expect(document.querySelector('.budget-overlay')?.textContent).toContain('none: no widget is animating');

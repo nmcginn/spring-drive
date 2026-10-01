@@ -63,6 +63,30 @@ for (const w of WIDGETS) {
       );
     });
 
+    it('makes every control a native button or slider whose name begins with its visible label', () => {
+      // Native, so each is reachable by Tab and works from the keyboard with
+      // no code of the widget's own. The name begins with what is on screen,
+      // so a reader using voice control can say it (WCAG 2.5.3; decision 41),
+      // and every slider has an ARIA label of its own.
+      const { root } = setup(w);
+      const controls = [...root().querySelectorAll<HTMLElement>('.controls button, .controls input')];
+      for (const control of controls) {
+        expect(control.tabIndex).toBe(0);
+        const name = control.getAttribute('aria-label') ?? control.textContent ?? '';
+        if (control instanceof HTMLInputElement) {
+          expect(control.type).toBe('range');
+          expect(control.getAttribute('aria-label')).toBeTruthy();
+          expect(control.getAttribute('aria-valuetext')).toBeTruthy();
+          const visible = control.closest('label')?.textContent ?? '';
+          expect(name.startsWith(visible), `${name} / ${visible}`).toBe(true);
+        } else {
+          expect((control as HTMLButtonElement).type).toBe('button');
+          const visible = control.textContent ?? '';
+          expect(name.startsWith(visible), `${name} / ${visible}`).toBe(true);
+        }
+      }
+    });
+
     it('puts a unit on every readout from the first frame', () => {
       const { values } = setup(w);
       // Every value has a unit after a narrow no-break space, or is a ratio
@@ -210,7 +234,7 @@ describe('runaway: controls', () => {
     const { env, root, button, values } = setup(runaway);
     env.setVisible(root(), true);
     button('Wind the mainspring fully and set the hands to 12:00').click();
-    const ff = button('Fast-forward, one hour each second');
+    const ff = button('Fast-forward, 1 h/s: one hour each second');
     ff.click();
     expect(ff.getAttribute('aria-pressed')).toBe('true');
     env.frames(0, 120, FRAME_MS);
@@ -227,7 +251,7 @@ describe('runaway: controls', () => {
     const { env, root, button, values } = setup(runaway);
     env.setVisible(root(), true);
     button('Wind the mainspring fully and set the hands to 12:00').click();
-    button('Fast-forward, one hour each second').click();
+    button('Fast-forward, 1 h/s: one hour each second').click();
     env.frame(0);
     env.frame(10 * 60 * 1000);
     expect(values()[3]).toBe('6\u202fmin 00\u202fs');
@@ -293,7 +317,7 @@ describe('generator: controls', () => {
 
 describe('lenz-brake: controls', () => {
   const lenz = WIDGETS[3];
-  const LET_GO = 'Let the glide wheel go from 8 rev/s';
+  const LET_GO = 'Let go at 8 rev/s: release the glide wheel';
   const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
   function drag(input: HTMLInputElement, value: string) {
     input.value = value;
@@ -442,7 +466,7 @@ describe('quartz: controls', () => {
 describe('tri-synchro: controls', () => {
   const tri = WIDGETS[6];
   const WIND = 'Wind the mainspring fully and start the reserve again from 0 h';
-  const SKIP = 'Skip six hours ahead';
+  const SKIP = 'Skip 6 h: six hours ahead';
   const slider = (root: HTMLElement) => root.querySelector<HTMLInputElement>('input[type="range"]')!;
   function drag(input: HTMLInputElement, value: string) {
     input.value = value;
