@@ -7,7 +7,7 @@
 ```
 index.html                  The article skeleton: section headings, PROSE stubs, widget slots, the footnote.
 src/
-  main.ts                   Finds [data-widget] slots and mounts each widget as it nears the viewport; wires global pause; mounts the `?budget` panel.
+  main.ts                   Finds [data-widget] slots and mounts each widget as it nears the viewport or takes focus; wires global pause; mounts the `?budget` panel.
   style.css                 Page and widget chrome. Colours only from palette custom properties; Jost from @fontsource.
   sim/
     tsconfig.json           Typechecks src/sim with neither the DOM lib nor Node's types.
@@ -36,6 +36,7 @@ src/
     palette.ts              Part and UI colour tokens for light and dark, paletteCss, WCAG contrast helpers.
     canvas.ts               HiDPI canvas that tracks its container's width, capped at 2x.
     controls.ts             Button, toggle, and slider helpers, and the reduced-motion Play/Pause button.
+    slots.ts                A widget slot as a Tab stop until its widget mounts, handing focus on to the first control (or the last, under Shift+Tab), and one memoised mount per slot (decision 41).
   widgets/
     registry.ts             Widget IDs mapped to lazy imports.
     shared/                 What every widget uses (decision 27):
@@ -69,7 +70,7 @@ tests/
   prose.ts                  What the prose calls each part, read from index.html, for the palette checks (decision 40).
   page.test.ts              Vitest: index.html's data-part names (one part per word), widget slots, and origins.
   harness/                  Vitest: the test suite's own pure helpers, such as reading a Chrome trace and the prose's part names.
-  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; every label naming a part drawn in its colour, in both schemes (palette.spec.ts; decision 40); then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
+  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; every label naming a part drawn in its colour, in both schemes (palette.spec.ts; decision 40); Tab and Shift+Tab through every control on a page padded as the prose will be, and every kind of control from the keyboard alone (keyboard.spec.ts; decision 41); then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
 ```
 
 Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
@@ -108,4 +109,5 @@ Controls change params or inject events, such as a shock or a wind, between step
 | Runtime | Vitest | The tick decision (pause, visibility, reduced motion) as a pure function |
 | Palette | Vitest and Playwright | A part is one colour in the prose, on every canvas label that names it, and in every readout keyed to it, in both schemes (decision 40) |
 | Widgets in a page | Playwright | Mount, primary control, no console errors, no off-origin requests, screenshots at 380 px and desktop |
+| Keyboard | Vitest and Playwright | Tab reaches every control in reading order both ways, even before a widget mounts; focus is visible and never under the pause button; every name begins with its visible label (decision 41) |
 | Frame budget | Playwright, then CI's run summary | At every widget's scroll stop, at both widths: widgets' ticks, and the main thread less canvas rasterising, each under 4 ms a frame (decision 39) |

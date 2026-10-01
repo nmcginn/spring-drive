@@ -17,6 +17,10 @@ const SCHEMES: Scheme[] = ['light', 'dark'];
 // `span.part`, not only as strokes, so they must meet the text threshold.
 const AA_TEXT = 4.5;
 
+// WCAG 2.1 AA for non-text contrast (1.4.11): what shows a control has
+// focus must stand out at 3:1 against what is around it.
+const AA_NON_TEXT = 3;
+
 describe('contrast arithmetic', () => {
   it('matches the WCAG reference values', () => {
     expect(relativeLuminance('#000000')).toBe(0);
@@ -55,6 +59,14 @@ describe('the palette', () => {
       expect(contrastRatio(ui.muted, ui.background)).toBeGreaterThanOrEqual(AA_TEXT);
       expect(contrastRatio(ui.muted, ui.surface)).toBeGreaterThanOrEqual(AA_TEXT);
       expect(contrastRatio(ui.onAccent, ui.accent)).toBeGreaterThanOrEqual(AA_TEXT);
+    });
+
+    it(`draws the focus ring, the text colour 2 px clear of the control, visibly on the page and on a widget in the ${scheme} theme`, () => {
+      // style.css outlines every focused control, link, and loading widget
+      // slot in --ui-text, offset onto the page background or the widget
+      // surface (decision 41).
+      expect(contrastRatio(ui.text, ui.background)).toBeGreaterThanOrEqual(AA_NON_TEXT);
+      expect(contrastRatio(ui.text, ui.surface)).toBeGreaterThanOrEqual(AA_NON_TEXT);
     });
 
     it(`gives every part a distinct colour in the ${scheme} theme`, () => {

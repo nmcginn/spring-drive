@@ -69,7 +69,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   });
   const fastForward = createToggle({
     label: 'Fast-forward, 1 h/s',
-    ariaLabel: 'Fast-forward, one hour each second',
+    ariaLabel: 'Fast-forward, 1 h/s: one hour each second',
     onChange: (on) => {
       state = setFastForward(state, on, params);
       shell.render();

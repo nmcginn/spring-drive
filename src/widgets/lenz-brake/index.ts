@@ -82,6 +82,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
   const duty = createSlider({
     label: 'Coil shorted',
+    ariaLabel: 'Coil shorted: the share of the time the coil brake is on',
     min: 0,
     max: 1,
     step: DUTY_STEP,
@@ -94,7 +95,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   });
   const release = createButton({
     label: 'Let go at 8 rev/s',
-    ariaLabel: 'Let the glide wheel go from 8 rev/s',
+    ariaLabel: 'Let go at 8 rev/s: release the glide wheel',
     onPress: () => {
       state = letGo(state, live, params);
       shell.render();

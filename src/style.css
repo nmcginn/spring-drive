@@ -10,6 +10,9 @@
    gets inlined at build time from src/runtime/palette.ts. */
 
 :root {
+  /* A control scrolled into view by the keyboard stops short of the fixed
+     pause button rather than under it: its 44 px and the gutter each side. */
+  scroll-padding-bottom: calc(44px + 2 * var(--gutter));
   --font-body: 'Jost', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --measure: 40rem;
@@ -48,6 +51,12 @@ a {
   color: inherit;
 }
 
+a:focus-visible {
+  /* The page's one focus ring, as on every control (decision 41). */
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -66,6 +75,13 @@ a {
   /* Reserve space before the widget mounts, so lazy mounting does not shift
      the prose the reader is in the middle of. */
   min-height: 160px;
+}
+
+.widget-slot:focus-visible {
+  /* A slot is a Tab stop only while its widget loads (decision 41), and
+     shows where focus is until the widget's first control takes it. */
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
 }
 
 .widget {

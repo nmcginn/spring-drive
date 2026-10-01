@@ -61,18 +61,18 @@ async function tour(page: Page): Promise<void> {
   await reach(page, 'generator');
   await frames(page, 5);
   await reach(page, 'lenz-brake');
-  await press(button('Let the glide wheel go from 8 rev/s'));
+  await press(button('Let go at 8 rev/s: release the glide wheel'));
   await frames(page, 5);
   await reach(page, 'quartz');
   await frames(page, 5);
   await reach(page, 'loop');
-  await press(button('Knock the watch so the glide wheel speeds up by 2 rev/s'));
+  await press(button('Knock +2 rev/s: a knock that speeds the glide wheel up by 2 rev/s'));
   await frames(page, 5);
   await press(button('Regulation: the IC brakes the glide wheel to hold it on the reference'));
   await frames(page, 5);
   await reach(page, 'tri-synchro');
   // Thirteen six-hour skips is 78 h: past regulation's end, the brownout, and the stop.
-  for (let i = 0; i < 13; i++) await press(button('Skip six hours ahead'));
+  for (let i = 0; i < 13; i++) await press(button('Skip 6 h: six hours ahead'));
   await frames(page, 5);
 }
 

@@ -66,6 +66,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
   const speed = createSlider({
     label: 'Glide wheel speed',
+    ariaLabel: 'Glide wheel speed, turning the generator',
     min: 0,
     max: speedMaxRevS(params),
     step: SPEED_STEP_REV_S,

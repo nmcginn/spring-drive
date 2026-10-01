@@ -12,10 +12,10 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M9b (palette consistency), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, the loop e2e fix as #16, and M9a as #17.
-- Last session: 2026-09-30, M9b: one table says which part each drawn thing is coloured as, lint makes widgets use it, and tests hold the prose, every canvas label, and every readout to it in both schemes. Five disagreements fixed (seconds hands, friction, the brake widget's speed curves, the reference, and part labels). Decision 40, and amendments to 15 and 38. No new parameter.
-- Open PRs waiting on review: M9b.
-- Next up: M9c (keyboard access). It needs only M3 to M8, all merged, so it can proceed from `master` while M9b is in review; so can M9d.
+- Current milestone: M9c (keyboard access), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, the loop e2e fix as #16, M9a as #17, and M9b as #18.
+- Last session: 2026-10-01, M9c: a widget's slot is a Tab stop until it mounts, so Tab no longer passes widgets that have not loaded; the pause button is the first Tab stop; a focused control is never under it; every control's name begins with its visible label, and every slider has an ARIA label. Decision 41, and an amendment to 32. No new parameter.
+- Open PRs waiting on review: M9c.
+- Next up: M9d (sharing metadata). It needs only M3 to M8, all merged, so it can proceed from `master` while M9c is in review. M9 is done when M9d lands.
 
 ## Open questions for the maintainer
 
@@ -163,9 +163,9 @@ Split along its four items, as its acceptance asked, because they touch differen
 
 ### M9c: Keyboard access
 
-- [ ] **Keyboard access for all controls, and ARIA labels on sliders.**
+- [x] **Keyboard access for all controls, and ARIA labels on sliders.**
   *Needs:* M3 to M8.
-  *Acceptance:* the item holds.
+  *Acceptance:* the item holds. What "keyboard access" covers, and how it is held, is decision 41.
 
 ### M9d: Sharing metadata
 
@@ -184,6 +184,8 @@ Split along its four items, as its acceptance asked, because they touch differen
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M9c: Keyboard access** (2026-10-01). Every control was already a native button or range input, so each worked from the keyboard once it existed; the gaps were around them. Widgets mount lazily, and Tab passed by any that had not: on a page padded as the prose will be, Tab went from the intro straight to the footnote, past six widgets. Each slot is now a Tab stop until its widget mounts (`src/runtime/slots.ts`), and focus arriving there mounts it and moves on to its first control, or its last under Shift+Tab. The global pause button moved to the start of the document, so it is the first Tab stop rather than the last, though it still sits at the bottom right. `scroll-padding-bottom` stops Tab scrolling a control under that fixed button, which it did to the generator's slider at 380 px. Five buttons whose names did not contain their visible label now begin with it (WCAG 2.5.3), every slider has an ARIA label saying what it acts on, and the footnote's link has the page's focus ring. `tests/e2e/keyboard.spec.ts` walks the padded page with Tab and Shift+Tab at both widths, and drives toggles, sliders, and buttons from the keyboard alone. Decision 41, and an amendment to 32.
 
 - **M9b: Palette consistency** (2026-09-30). An audit of every part colour the widgets use, and of every label they draw with its fill (recorded in a real browser), found five places where a thing was not the colour the prose gives it. Seconds hands were the glide wheel's blue, even on the intro's mechanical watch; every hand is now the hands' colour. Friction was the train's grey in tri-synchro and neutral in the brake widget; it is the wheel's own friction, so neutral in both. The brake widget drew the wheel's speed in the coil's red; it is the wheel's blue, as in the loop and tri-synchro. The reference was the crystal's violet in the loop and tri-synchro but the IC's teal in the quartz widget; it is violet throughout. And labels naming a part ("Glide wheel speed", "Mainspring", "IC: locking", "Glide wheel stops") were sometimes plain text; each now takes its part's colour. `src/widgets/shared/colours.ts` now says once which part each drawn thing belongs to, and lint stops a widget reading part colours any other way, or writing a colour literal. Readout labels carry their part in the prose's own markup, so the page's `.part` rule colours both and each readout is keyed to its trace. `tests/prose.ts` reads the prose's part names from `index.html`; Vitest checks the table and the readouts against them, and `tests/e2e/palette.spec.ts` checks every canvas label and readout on the page, in both colour schemes, at both widths. The runaway gains a dark-scheme screenshot. Decision 40, and amendments to 15 and 38.
 

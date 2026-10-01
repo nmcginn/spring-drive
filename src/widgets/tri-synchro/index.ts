@@ -78,6 +78,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
 
   const rateSlider = createSlider({
     label: 'Time runs at',
+    ariaLabel: 'Time runs at: how fast the whole reserve plays',
     min: 0,
     max: RATES.length - 1,
     step: 1,
@@ -98,7 +99,7 @@ export function mount(el: HTMLElement, opts: Options = {}): () => void {
   });
   const skipButton = createButton({
     label: 'Skip 6 h',
-    ariaLabel: 'Skip six hours ahead',
+    ariaLabel: 'Skip 6 h: six hours ahead',
     onPress: () => {
       state = skip(state, params);
       shell.render();

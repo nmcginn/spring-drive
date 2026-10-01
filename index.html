@@ -15,6 +15,10 @@
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
+    <!-- First in the document, though it sits at the bottom of the screen, so stopping every animation is the first Tab stop rather than the last (decision 41). -->
+    <button type="button" class="global-pause" data-global-pause hidden>
+      Pause animations
+    </button>
     <main class="article">
       <header>
         <h1>Spring Drive</h1>
@@ -79,9 +83,5 @@
         </p>
       </footer>
     </main>
-
-    <button type="button" class="global-pause" data-global-pause hidden>
-      Pause animations
-    </button>
   </body>
 </html>

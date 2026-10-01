@@ -50,7 +50,7 @@ export function mountBudgetOverlay(scheduler: Scheduler, parent: HTMLElement = d
   // last one; this starts the measurement from here.
   const again = createButton({
     label: 'Measure again',
-    ariaLabel: 'Measure the frame budget again from now',
+    ariaLabel: 'Measure again: the frame budget from now',
     onPress: () => {
       scheduler.resetFrameCosts();
       refresh();
