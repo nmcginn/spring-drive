@@ -12,10 +12,11 @@ If a task turns out to be larger than one PR, land the smallest **complete** sli
 
 Update this at the end of every session.
 
-- Current milestone: M9c (keyboard access), in review. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, the loop e2e fix as #16, M9a as #17, and M9b as #18.
-- Last session: 2026-10-01, M9c: a widget's slot is a Tab stop until it mounts, so Tab no longer passes widgets that have not loaded; the pause button is the first Tab stop; a focused control is never under it; every control's name begins with its visible label, and every slider has an ARIA label. Decision 41, and an amendment to 32. No new parameter.
-- Open PRs waiting on review: M9c.
-- Next up: M9d (sharing metadata). It needs only M3 to M8, all merged, so it can proceed from `master` while M9c is in review. M9 is done when M9d lands.
+- Current milestone: M9d (sharing metadata), in review. With it, M9 is done. M0 merged as #2, M1 as #5, M2 as #6, M3 as #8, M4 as #9, M5 as #10, M6 as #11, decision 35 as #12, M7 as #13, M7b as #14, M8 as #15, the loop e2e fix as #16, M9a as #17, M9b as #18, and M9c as #19.
+- Last session: 2026-10-02, M9d: Open Graph and X tags, a share card drawn from the palette and the widgets' own drawing code, the glide wheel's magnet as the favicon (SVG, ICO, and a home-screen icon), and the build making the sharing URLs absolute from `SITE_URL` or Cloudflare's `CF_PAGES_URL`. Decision 42. No new parameter.
+- Open PRs waiting on review: M9d.
+- For the maintainer, not blocking anything: once the site has its public address, set `SITE_URL` in Cloudflare Pages for Production (README, Deployment). Until then, previews show the card from each deployment's own address, and the page has no canonical URL.
+- Next up: nothing the loop may start. Every milestone through M9 is done or in review. M10 waits on the maintainer saying it is wanted; until then, a night is best spent on review feedback, or on an idea below if the maintainer schedules one.
 
 ## Open questions for the maintainer
 
@@ -169,9 +170,9 @@ Split along its four items, as its acceptance asked, because they touch differen
 
 ### M9d: Sharing metadata
 
-- [ ] **Open Graph image and meta tags.**
+- [x] **Open Graph image and meta tags.**
   *Needs:* M3 to M8.
-  *Acceptance:* the item holds. `index.html`'s empty `data:` favicon is a placeholder waiting on this task.
+  *Acceptance:* the item holds. `index.html`'s empty `data:` favicon is a placeholder waiting on this task. What the tags, the card, and the icons are, and how they are held, is decision 42.
 
 ## M10 (optional): `movement-3d`
 
@@ -184,6 +185,8 @@ Split along its four items, as its acceptance asked, because they touch differen
 ## Done
 
 Newest first. One paragraph per task: what landed, the date, and the decisions it added.
+
+- **M9d: Sharing metadata** (2026-10-02). A shared link now shows the article's title, its description, and a card: the title and description set in Jost beside a watch dial, with the glide wheel's magnet under its coil, drawn by the widgets' own drawing functions in the light palette (`public/og-image.png`, 1,200 × 630). The tags (`og:*`, `twitter:card`, a canonical link) are written by hand in `index.html`, and tests hold the Open Graph title and description equal to the page's own. The build makes their URLs absolute (`tools/head.ts`): the image from `SITE_URL`, or failing it Cloudflare's `CF_PAGES_URL`, so previews already unfurl; the page's own URL only from `SITE_URL`, and without it those tags are left out, so a preview never claims to be the article. M0's empty `data:` favicon is replaced by the glide wheel's magnet: an SVG in the palette's colours for either scheme, `favicon.ico` at 16, 32, and 48 px, and a 180 px home-screen icon. `npm run og-image` (`tools/og/`) draws the images in Chromium; they are committed, and a test fails, saying to re-render, when anything they are drawn from changes. `tests/e2e/sharing.spec.ts` checks the served files and the favicon's colours in both schemes, and `tests/tools/build.test.ts` runs a real build with `SITE_URL` set. With this, M9 is done. Decision 42.
 
 - **M9c: Keyboard access** (2026-10-01). Every control was already a native button or range input, so each worked from the keyboard once it existed; the gaps were around them. Widgets mount lazily, and Tab passed by any that had not: on a page padded as the prose will be, Tab went from the intro straight to the footnote, past six widgets. Each slot is now a Tab stop until its widget mounts (`src/runtime/slots.ts`), and focus arriving there mounts it and moves on to its first control, or its last under Shift+Tab. The global pause button moved to the start of the document, so it is the first Tab stop rather than the last, though it still sits at the bottom right. `scroll-padding-bottom` stops Tab scrolling a control under that fixed button, which it did to the generator's slider at 380 px. Five buttons whose names did not contain their visible label now begin with it (WCAG 2.5.3), every slider has an ARIA label saying what it acts on, and the footnote's link has the page's focus ring. `tests/e2e/keyboard.spec.ts` walks the padded page with Tab and Shift+Tab at both widths, and drives toggles, sliders, and buttons from the keyboard alone. Decision 41, and an amendment to 32.
 

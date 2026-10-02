@@ -59,7 +59,7 @@ jobs:
             echo
             echo '| File | Bytes | Gzipped |'
             echo '|---|---:|---:|'
-            find dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.woff2' \) | sort | while read -r f; do
+            find dist -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.woff2' -o -name '*.svg' -o -name '*.ico' -o -name '*.png' \) | sort | while read -r f; do
               echo "| \`${f#dist/}\` | $(wc -c < "$f") | $(gzip -9c "$f" | wc -c) |"
             done
           } >> "$GITHUB_STEP_SUMMARY"

@@ -4,11 +4,34 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Spring Drive</title>
-    <!-- No favicon yet (M9 adds sharing metadata). An empty data: icon stops the browser requesting /favicon.ico and logging a 404. -->
-    <link rel="icon" href="data:," />
     <meta
       name="description"
       content="How Seiko's Spring Drive keeps time, explained with interactive simulations."
+    />
+    <!-- The favicon and home-screen icon are the glide wheel's magnet, and public/og-image.png is the card a shared link shows. All three are drawn from the palette by `npm run og-image` (decision 42). -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- What a shared link shows. The title and description repeat the two above, and tests hold them equal. The build makes these URLs absolute from SITE_URL, or this deployment's CF_PAGES_URL, and leaves out the page's own URL when SITE_URL is not set (decision 42). `vite-ignore` stops Vite reading "/" as a file. -->
+    <link rel="canonical" href="/" vite-ignore />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Spring Drive" />
+    <meta
+      property="og:description"
+      content="How Seiko's Spring Drive keeps time, explained with interactive simulations."
+    />
+    <meta property="og:url" content="/" vite-ignore />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="The words Spring Drive and the article's description beside a watch dial, with the glide wheel's magnet under its coil."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:image:alt"
+      content="The words Spring Drive and the article's description beside a watch dial, with the glide wheel's magnet under its coil."
     />
     <!-- The palette is inlined here at build time from src/runtime/palette.ts, so the prose is coloured before any script runs. -->
     <style id="palette"></style>

@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PART_IDS } from '../src/runtime/palette.ts';
 import { WIDGETS } from '../src/widgets/registry.ts';
+import { metaContent, pageTitle } from '../tools/head.ts';
 import { proseTerms } from './prose.ts';
 
 // Checks on index.html that do not need a browser.
@@ -43,5 +44,37 @@ describe('index.html', () => {
 
   it('credits Ciechanowski’s Mechanical Watch as the inspiration', () => {
     expect(html).toContain('href="https://ciechanow.ski/mechanical-watch/"');
+  });
+
+  it('shares under its own title and description, so a link preview says what the page does', () => {
+    // Decision 42: the Open Graph tags repeat the page's own, by hand, and
+    // this holds them equal.
+    expect(metaContent(html, 'og:title')).toBe(pageTitle(html));
+    expect(metaContent(html, 'og:description')).toBe(metaContent(html, 'description'));
+    expect(metaContent(html, 'og:type')).toBe('article');
+  });
+
+  it('asks for the large preview card, and describes its image the same way to every reader', () => {
+    expect(metaContent(html, 'twitter:card')).toBe('summary_large_image');
+    expect(metaContent(html, 'og:image:alt')?.length).toBeGreaterThan(0);
+    expect(metaContent(html, 'twitter:image:alt')).toBe(metaContent(html, 'og:image:alt'));
+    expect(metaContent(html, 'og:image:type')).toBe('image/png');
+  });
+
+  it('points every icon and image in its head at a file the build serves', () => {
+    const local = [
+      ...[...html.matchAll(/<link rel="(?:icon|apple-touch-icon)" href="([^"]+)"/g)].map((m) => m[1] ?? ''),
+      metaContent(html, 'og:image') ?? '',
+    ];
+    expect(local).toHaveLength(3);
+    for (const path of local) {
+      expect(path).toMatch(/^\/[^/]/);
+      expect(existsSync(join(import.meta.dirname, '..', 'public', path))).toBe(true);
+    }
+  });
+
+  it('writes the page’s own URL relative, for the build to make absolute or leave out (decision 42)', () => {
+    expect(metaContent(html, 'og:url')).toBe('/');
+    expect(html).toContain('<link rel="canonical" href="/" vite-ignore />');
   });
 });

@@ -14,6 +14,8 @@ npm run check    # everything CI runs
 
 Node 22 (`.nvmrc`). `npm run sim -- <scenario>` runs a headless scenario and writes a CSV to `tools/out/`; `npm run sim` alone lists the scenarios. See `CLAUDE.md` for the full command list.
 
+The share card and icons in `public/` are drawn from the palette and the widgets' drawing code by `npm run og-image`, which needs Chromium. `npm test` fails, saying so, when anything they are drawn from has changed since (decision 42).
+
 To check the 4 ms frame budget on a real machine, open the page (or a preview deployment) with `?budget` in the URL. Scroll to a widget, press **Measure again**, and read the panel: the widgets' time per frame, in total and one by one (decision 39).
 
 | File | What it is |
@@ -42,7 +44,9 @@ The site is static and deploys to Cloudflare Pages from `master`. To connect the
    - Root directory: leave empty
 4. Node version: Cloudflare's build image reads `.nvmrc`, which pins Node 22. If a build ever picks up another version, set the environment variable `NODE_VERSION` to `22` for both Production and Preview.
 
-Every pull request then gets a preview deployment, which is the quickest way to try a widget on a real phone. The build needs no secrets and no environment variables, and the site makes no runtime network requests: fonts and scripts are all served from `dist`.
+5. Once the site has its public address, set the environment variable `SITE_URL` to it (for example `https://spring-drive.pages.dev`, or a custom domain) for **Production** only. Link previews need absolute URLs. Without `SITE_URL`, the share card's URL uses the address Cloudflare gives each deployment (`CF_PAGES_URL`, set automatically), and the page's canonical URL is left out (decision 42). Leave it unset for Preview, so previews never name themselves as the article.
+
+Every pull request then gets a preview deployment, which is the quickest way to try a widget on a real phone, or a link preview in a chat. The build needs no secrets, and the site makes no runtime network requests: fonts and scripts are all served from `dist`.
 
 ## License
 
