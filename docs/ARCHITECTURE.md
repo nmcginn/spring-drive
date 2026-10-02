@@ -5,7 +5,12 @@
 ## Shape
 
 ```
-index.html                  The article skeleton: section headings, PROSE stubs, widget slots, the footnote.
+index.html                  The article skeleton: section headings, PROSE stubs, widget slots, the footnote; in its head, the sharing tags and icons (decision 42).
+public/                     Copied into the build as is. All four files are written by `npm run og-image` (decision 42):
+  og-image.png                The card a shared link shows, 1,200 × 630.
+  favicon.svg                 The glide wheel's magnet, in the palette's colours for either scheme.
+  favicon.ico                 The same at 16, 32, and 48 px, for whatever asks for /favicon.ico by name.
+  apple-touch-icon.png        The same at 180 px on the page's background, for iOS.
 src/
   main.ts                   Finds [data-widget] slots and mounts each widget as it nears the viewport or takes focus; wires global pause; mounts the `?budget` panel.
   style.css                 Page and widget chrome. Colours only from palette custom properties; Jost from @fontsource.
@@ -60,20 +65,27 @@ tools/
   scenarios.ts              The five named scenarios, each a reproducible run in detailed or averaged mode.
   csv.ts                    Samples to CSV, every column named with its unit.
   out/                      Where the CSVs go. Git ignores it.
-vite.config.ts              Build config, and the plugin that inlines the palette into index.html.
+  head.ts                   The favicon SVG from the palette, an ICO from PNGs, reading the head's tags, and making its sharing URLs absolute from SITE_URL or CF_PAGES_URL (decision 42). Pure.
+  og/                       `npm run og-image` (decision 42):
+    render.ts                 Draws the card and the icons in Chromium and writes them to public/, with the digest of what they were drawn from.
+    card.html, card.ts        The card, drawn by the widgets' own drawing functions. Served by Vite only for the render; never in the build.
+    layout.ts                 Where everything on the card goes, and whether it fits, pure.
+    inputs.ts                 What the images are drawn from, and its digest.
+    rendered.json             The digest at the last render, which a test compares with the current one.
+vite.config.ts              Build config: the plugin that inlines the palette into index.html, and the one that makes the head's sharing URLs absolute.
 tests/
   sim/                      Vitest, under Node: all eight physics tests from PLAN.md, a unit test per module, PHYSICS.md coverage.
-  tools/                    Vitest: the CSV format and the CLI's contract.
+  tools/                    Vitest: the CSV format and the CLI's contract; the head's tags, icons, and URLs; the card's layout and the committed images' sizes and freshness; a real build with SITE_URL set.
   runtime/                  Vitest: scheduler (with fake-env.ts), palette, canvas, controls.
   widgets/                  Vitest: each widget's pure logic, formatting, and dial geometry under Node; the widget contract for every widget under happy-dom (mount.test.ts).
   lint/                     Vitest: lint and tsconfig fixtures that must fail (decision 18), including the palette's (decision 40).
   prose.ts                  What the prose calls each part, read from index.html, for the palette checks (decision 40).
   page.test.ts              Vitest: index.html's data-part names (one part per word), widget slots, and origins.
-  harness/                  Vitest: the test suite's own pure helpers, such as reading a Chrome trace and the prose's part names.
-  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; every label naming a part drawn in its colour, in both schemes (palette.spec.ts; decision 40); Tab and Shift+Tab through every control on a page padded as the prose will be, and every kind of control from the keyboard alone (keyboard.spec.ts; decision 41); then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
+  harness/                  Vitest: the test suite's own pure helpers, such as reading a Chrome trace, the prose's part names, and a PNG's or an ICO's header.
+  e2e/                      Playwright: mobile (380 px, touch) and desktop projects, against the production build; every label naming a part drawn in its colour, in both schemes (palette.spec.ts; decision 40); Tab and Shift+Tab through every control on a page padded as the prose will be, and every kind of control from the keyboard alone (keyboard.spec.ts; decision 41); the sharing tags, the card, and the icons as served, and the favicon's colours in both schemes (sharing.spec.ts; decision 42); then the frame budget at every widget's scroll stop, in projects of its own (budget.spec.ts, trace.ts; decision 39).
 ```
 
-Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one.
+Every widget in `PLAN.md`'s outline is built, except the optional `movement-3d` (M10). Beyond the target, `widgets/shared/` holds what the widgets share, so each widget directory is only its own logic and drawing (decision 27). Beyond the target, `tools/` splits the CLI into `sim-cli.ts`, `scenarios.ts`, and `csv.ts`, so the scenarios and the format are tested without spawning a process (decision 24). Beyond the target, `sim/` has `spindown.ts` (the brake widget's coast, decision 33), `metrics.ts` (so tests, the CLI, and widgets share one definition of lock), `rectifier.ts` and `solve.ts` (the peak-charging rectifier and the solver for its balances, decision 37), `rng.ts`, and `shocks.ts` (test 8's seeded randomness). `runtime/controls.ts` has buttons, toggles, and sliders (decision 32); a scrubber arrives with the first widget that needs one. Beyond the target, `public/` holds the share card and icons, and `tools/head.ts` and `tools/og/` make them and the head's URLs (decision 42).
 
 ## The rule: physics, runtime, and widgets stay separate
 
@@ -110,4 +122,5 @@ Controls change params or inject events, such as a shock or a wind, between step
 | Palette | Vitest and Playwright | A part is one colour in the prose, on every canvas label that names it, and in every readout keyed to it, in both schemes (decision 40) |
 | Widgets in a page | Playwright | Mount, primary control, no console errors, no off-origin requests, screenshots at 380 px and desktop |
 | Keyboard | Vitest and Playwright | Tab reaches every control in reading order both ways, even before a widget mounts; focus is visible and never under the pause button; every name begins with its visible label (decision 41) |
+| Sharing | Vitest and Playwright | The Open Graph tags repeat the page's title and description; the URLs are absolute once the build knows the site; the card and icons are the declared sizes, served, and drawn from the current palette (decision 42) |
 | Frame budget | Playwright, then CI's run summary | At every widget's scroll stop, at both widths: widgets' ticks, and the main thread less canvas rasterising, each under 4 ms a frame (decision 39) |

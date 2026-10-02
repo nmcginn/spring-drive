@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:e2e": "vite build --logLevel warn && playwright test",
     "sim": "tsx tools/sim-cli.ts",
+    "og-image": "tsx tools/og/render.ts",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run sim -- all && npm run build && npm run test:e2e"
   },
   "devDependencies": {
